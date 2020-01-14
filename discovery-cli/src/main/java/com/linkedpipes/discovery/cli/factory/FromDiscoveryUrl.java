@@ -47,8 +47,8 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 "https://discovery.linkedpipes.com/vocabulary/"
                         + "outputDataSample");
         HAS_IMPORT = valueFactory.createIRI(
-                "https://discovery.linkedpipes.com/vocabulary/" +
-                        "discovery/import");
+                "https://discovery.linkedpipes.com/vocabulary/"
+                        + "discovery/import");
     }
 
     private final String discoveryUrl;
