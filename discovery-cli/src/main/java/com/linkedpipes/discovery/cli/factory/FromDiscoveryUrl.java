@@ -19,7 +19,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class FromExperiment extends DiscoveryBuilder {
+public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private static final IRI HAS_TEMPLATE;
 
@@ -39,7 +39,7 @@ public class FromExperiment extends DiscoveryBuilder {
 
     private Dataset dataset = null;
 
-    public FromExperiment(String url) {
+    public FromDiscoveryUrl(String url) {
         this.url = url;
     }
 

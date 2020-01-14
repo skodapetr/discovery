@@ -19,8 +19,8 @@ $ java -jar discovery.jar
 ```
 
 ### Arguments
-- *-e*, *--experiment* - URL of experiment specification. Applications
-    nad transformers are loaded from the experiment.
+- *-d*, *--discovery* - URL of experiment specification. A dataset, 
+    applications and transformers are loaded from the discovery definition.
 - *--dataset* - Path to dataset directory on local file system, 
     can't be used together with *experiment*.
 - *--applications* - Directory with applications to add to the run.

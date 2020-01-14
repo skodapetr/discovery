@@ -5,7 +5,7 @@ import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.cli.export.TextExport;
 import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
-import com.linkedpipes.discovery.cli.factory.FromExperiment;
+import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
 import com.linkedpipes.discovery.cli.factory.FromFileSystem;
 import com.linkedpipes.discovery.cli.export.GephiExport;
 import com.linkedpipes.discovery.node.Node;
@@ -44,20 +44,20 @@ public class AppEntry {
     public void run(String[] args) throws Exception {
         CommandLine cmd = parseArgs(args);
         DiscoveryBuilder builder = null;
-        if (cmd.hasOption("experiment")) {
+        if (cmd.hasOption("discovery")) {
             if (cmd.hasOption("dataset")) {
                 System.out.println(
-                        "Options 'experiment' and 'dataset' "
+                        "Options 'discovery' and 'dataset' "
                                 + "can not be used together");
                 System.exit(1);
             }
-            builder = new FromExperiment(cmd.getOptionValue("experiment"));
+            builder = new FromDiscoveryUrl(cmd.getOptionValue("discovery"));
         } else if (cmd.hasOption("dataset")) {
             builder = new FromFileSystem(
                     new File(cmd.getOptionValue("dataset")));
         } else {
             System.out.println(
-                    "Either 'experiment' or 'dataset' must be set.");
+                    "Either 'discovery' or 'dataset' must be set.");
             System.exit(1);
         }
         if (cmd.hasOption("applications")) {
@@ -71,7 +71,7 @@ public class AppEntry {
         if (cmd.hasOption("filter")) {
             builder.setFilterStrategy(cmd.getOptionValue("filter"));
         }
-        runExperiment(
+        runDiscovery(
                 builder,
                 Integer.parseInt(cmd.getOptionValue("limit", "-1")),
                 new File(cmd.getOptionValue("output")));
@@ -81,10 +81,10 @@ public class AppEntry {
     private CommandLine parseArgs(String[] args) {
         Options options = new Options();
 
-        Option experiments = new Option(
-                "e", "experiment", true, "url of an experiment to run");
-        experiments.setRequired(false);
-        options.addOption(experiments);
+        Option discovery = new Option(
+                "d", "discovery", true, "url of an discovery to run");
+        discovery.setRequired(false);
+        options.addOption(discovery);
 
         Option applications = new Option(
                 null, "applications", true, "Path to application directory.");
@@ -130,7 +130,7 @@ public class AppEntry {
         }
     }
 
-    private void runExperiment(
+    private void runDiscovery(
             DiscoveryBuilder builder, int limit, File output)
             throws Exception {
         SimpleMeterRegistry memoryRegistry = new SimpleMeterRegistry();
