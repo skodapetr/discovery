@@ -23,6 +23,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,8 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private static final IRI HAS_DATA_SAMPLE;
 
+    private static final IRI HAS_IMPORT;
+
     static {
         SimpleValueFactory valueFactory = SimpleValueFactory.getInstance();
         HAS_TEMPLATE = valueFactory.createIRI(
@@ -43,9 +46,12 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         HAS_DATA_SAMPLE = valueFactory.createIRI(
                 "https://discovery.linkedpipes.com/vocabulary/"
                         + "outputDataSample");
+        HAS_IMPORT = valueFactory.createIRI(
+                "https://discovery.linkedpipes.com/vocabulary/" +
+                        "discovery/import");
     }
 
-    private final String url;
+    private final String discoveryUrl;
 
     private Dataset dataset = null;
 
@@ -54,12 +60,12 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     private File report = null;
 
     public FromDiscoveryUrl(String url) {
-        this.url = url;
+        this.discoveryUrl = url;
     }
 
     @Override
     public Discovery create(MeterRegistry registry) throws Exception {
-        List<String> templates = loadTemplateUrls();
+        List<String> templates = loadTemplateUrls(discoveryUrl);
         loadTemplates(templates);
         checkIsValid();
         FilterStrategy filterStrategy = getFilterStrategy(registry);
@@ -67,15 +73,36 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 dataset, transformers, applications, filterStrategy, registry);
     }
 
-    private List<String> loadTemplateUrls() throws IOException {
-        List<Statement> statements = RdfAdapter.asStatements(new URL(url));
+    private List<String> loadTemplateUrls(String url) throws IOException {
+        List<Statement> statements;
+        try {
+            statements = RdfAdapter.asStatements(new URL(url));
+        } catch (IOException ex) {
+            if (!ignoreIssues) {
+                throw ex;
+            }
+            LOG.warn("Can't resolve URL: {}", url);
+            appendToReport("Invalid IMPORT url: " + url);
+            return new ArrayList<>();
+        }
         // We do not filter by URL as the URL may contain
         // extension.
-        return statements.stream()
+        List<String> result = statements.stream()
                 .filter(st -> st.getPredicate().equals(HAS_TEMPLATE))
                 .filter(st -> st.getObject() instanceof IRI)
                 .map(st -> st.getObject().stringValue())
                 .collect(Collectors.toList());
+        for (Statement statement : statements) {
+            if (!statement.getPredicate().equals(HAS_IMPORT)) {
+                continue;
+            }
+            if (!(statement.getSubject() instanceof IRI)) {
+                continue;
+            }
+            result.addAll(loadTemplateUrls(
+                    statement.getSubject().stringValue()));
+        }
+        return result;
     }
 
     private void loadTemplates(List<String> templates)
