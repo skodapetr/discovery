@@ -33,6 +33,8 @@ $ java -jar discovery.jar
         Currently this is the fastest available filter and is used by default.
 - *--limit* - Number of iterations to explore, -1 or not provided, to 
     run without a limit. 
+- *--IHaveBadDiscoveryDefinition* - Can be used to ignore issues with Discovery 
+    definition, can be used only with *-d*/*--discovery* option.
 
 [Java]: <http://www.oracle.com/technetwork/java/javase/downloads/index.html>
 [Git]: <https://git-scm.com/>

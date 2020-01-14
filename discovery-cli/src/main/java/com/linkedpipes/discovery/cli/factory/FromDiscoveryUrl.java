@@ -13,13 +13,23 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class FromDiscoveryUrl extends DiscoveryBuilder {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(FromDiscoveryUrl.class);
 
     private static final IRI HAS_TEMPLATE;
 
@@ -38,6 +48,10 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     private final String url;
 
     private Dataset dataset = null;
+
+    private boolean ignoreIssues = false;
+
+    private File report = null;
 
     public FromDiscoveryUrl(String url) {
         this.url = url;
@@ -67,7 +81,17 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     private void loadTemplates(List<String> templates)
             throws Exception {
         for (String url : templates) {
-            List<Statement> statements = RdfAdapter.asStatements(new URL(url));
+            List<Statement> statements;
+            try {
+                statements = RdfAdapter.asStatements(new URL(url));
+            } catch (Exception ex) {
+                if (!ignoreIssues) {
+                    throw ex;
+                }
+                LOG.warn("Can't resolve template: {}", url, ex);
+                appendToReport("Invalid template URL: " + url);
+                continue;
+            }
             for (Statement statement : statements) {
                 if (!statement.getSubject().stringValue().equals(url)) {
                     continue;
@@ -119,8 +143,31 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private void checkIsValid() throws Exception {
         if (dataset == null) {
+            appendToReport("Missing dataset.");
             throw new Exception("Missing dataset");
         }
+    }
+
+    private void appendToReport(String line) throws IOException {
+        if (report == null) {
+            return;
+        }
+        report.getParentFile().mkdirs();
+        try (var writer = new PrintWriter(
+                new OutputStreamWriter(
+                        new FileOutputStream(report, true),
+                        StandardCharsets.UTF_8))) {
+            writer.write(line);
+            writer.write("\n");
+        }
+    }
+
+    public void setIgnoreIssues(boolean ignoreIssues) {
+        this.ignoreIssues = ignoreIssues;
+    }
+
+    public void setReport(File report) {
+        this.report = report;
     }
 
 }

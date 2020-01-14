@@ -44,6 +44,7 @@ public class AppEntry {
     public void run(String[] args) throws Exception {
         CommandLine cmd = parseArgs(args);
         DiscoveryBuilder builder = null;
+        File output = new File(cmd.getOptionValue("output"));
         if (cmd.hasOption("discovery")) {
             if (cmd.hasOption("dataset")) {
                 System.out.println(
@@ -52,6 +53,11 @@ public class AppEntry {
                 System.exit(1);
             }
             builder = new FromDiscoveryUrl(cmd.getOptionValue("discovery"));
+            if (cmd.hasOption("IHaveBadDiscoveryDefinition")) {
+                ((FromDiscoveryUrl)builder).setIgnoreIssues(true);
+                ((FromDiscoveryUrl)builder).setReport(
+                        new File(output, "builder-report.txt"));
+            }
         } else if (cmd.hasOption("dataset")) {
             builder = new FromFileSystem(
                     new File(cmd.getOptionValue("dataset")));
@@ -74,7 +80,7 @@ public class AppEntry {
         runDiscovery(
                 builder,
                 Integer.parseInt(cmd.getOptionValue("limit", "-1")),
-                new File(cmd.getOptionValue("output")));
+                output);
     }
 
     @SuppressFBWarnings(value = {"DM_EXIT"})
@@ -116,6 +122,12 @@ public class AppEntry {
                 null, "limit", true, "Iteration limit.");
         limit.setRequired(false);
         options.addOption(limit);
+
+        Option ignoreDiscoveryIssues = new Option(
+                null, "IHaveBadDiscoveryDefinition", false,
+                "Ignore issues in discovery definition.");
+        ignoreDiscoveryIssues.setRequired(false);
+        options.addOption(ignoreDiscoveryIssues);
 
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
