@@ -150,8 +150,23 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 continue;
             }
             String sampleUrl = statement.getObject().stringValue();
-            List<Statement> dataSample =
-                    RdfAdapter.asStatements(new URL(sampleUrl));
+            List<Statement> dataSample;
+            try {
+                dataSample = RdfAdapter.asStatements(new URL(sampleUrl));
+            } catch (Exception ex) {
+                if (!ignoreIssues) {
+                    throw ex;
+                }
+                LOG.warn(
+                        "Can't resolve dataset sample on {} for {}",
+                        sampleUrl, iri, ex);
+                appendToReport("Invalid dataset sample URL: " + sampleUrl);
+                return;
+            }
+            if (dataset != null) {
+                LOG.warn("Ignoring dataset: {}", dataset.iri);
+                appendToReport("Ignoring dataset: " + dataset.iri);
+            }
             dataset = ModelAdapter.loadDataset(iri, dataSample);
             return;
         }
