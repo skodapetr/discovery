@@ -1,7 +1,9 @@
 package com.linkedpipes.discovery.cli;
 
 import com.linkedpipes.discovery.Discovery;
+import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.GephiExport;
+import com.linkedpipes.discovery.cli.export.NodeToName;
 import com.linkedpipes.discovery.cli.factory.FromFileSystem;
 import com.linkedpipes.discovery.node.Node;
 import com.linkedpipes.discovery.rdf.ExplorerStatistics;
@@ -39,7 +41,7 @@ public class DevelopAppEntry {
 
     public void run(String[] args) throws Exception {
         // runOnAllDatasets();
-        //runExperiment(DATASET_DIR + "http---data.open.ac.uk-query");
+        // runExperiment(DATASET_DIR + "http---data.open.ac.uk-query");
         runExperiment(DATASET_DIR + "https---nkod.opendata.cz-sparql");
     }
 
@@ -81,11 +83,15 @@ public class DevelopAppEntry {
         AppEntry.logMeterRegistry(registry);
         LOG.info("Exporting for Gephi ...");
         String name = datasetDir.getName();
-        File outputDir = new File("./../data/gephi/" + name);
+        File outputDir = new File("./../data/output/" + name);
+        NodeToName nodeToName = new NodeToName(root);
         GephiExport.export(root,
                 new File(outputDir, "edges.csv"),
                 new File(outputDir, "vertices.csv"),
+                nodeToName,
                 discovery.getApplications());
+        DataSamplesExport.export(
+                root, nodeToName, new File(outputDir, "data-samples"));
     }
 
     private MeterRegistry createMeterRegistry() {

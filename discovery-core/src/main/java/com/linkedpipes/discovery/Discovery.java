@@ -105,6 +105,10 @@ public class Discovery {
         newNodes.forEach((node) -> filter.addNode(node));
     }
 
+    public Dataset getDataset() {
+        return dataset;
+    }
+
     public List<Transformer> getTransformers() {
         return Collections.unmodifiableList(transformers);
     }

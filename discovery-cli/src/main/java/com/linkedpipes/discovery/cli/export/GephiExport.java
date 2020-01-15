@@ -50,12 +50,12 @@ public final class GephiExport {
 
     public static void export(
             Node root, File edgeFile, File verticesFile,
+            NodeToName nodeToName,
             List<Application> applications)
             throws IOException {
         List<Edge> edges = new ArrayList<>();
         List<Vertex> vertices = new ArrayList<>();
         //
-        int counter = 0;
         Map<Node, Vertex> vertexMap = new HashMap<>();
         Deque<Node> nodes = new ArrayDeque<>();
         nodes.add(root);
@@ -64,7 +64,7 @@ public final class GephiExport {
             nodes.addAll(node.getNext());
             // Create vertex.
             Vertex vertex = new Vertex(
-                    "node_" + counter++,
+                    nodeToName.name(node),
                     node.getLevel(),
                     collectApps(node, applications));
             vertexMap.put(node, vertex);
@@ -72,12 +72,8 @@ public final class GephiExport {
             // Add edge to parent.
             if (node.getPrevious() != null) {
                 Vertex prev = vertexMap.get(node.getPrevious());
-                edges.add(new Edge(
-                        prev, vertex,
-                        node.getTransformer().title.asString()));
-
+                edges.add(new Edge(prev, vertex, node.getTransformer().iri));
             }
-
         }
         //
         writeEdgeFile(edges, edgeFile);

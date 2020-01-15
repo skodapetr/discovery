@@ -3,7 +3,9 @@ package com.linkedpipes.discovery.cli;
 import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.SuppressFBWarnings;
-import com.linkedpipes.discovery.cli.export.TextExport;
+import com.linkedpipes.discovery.cli.export.DataSamplesExport;
+import com.linkedpipes.discovery.cli.export.NodeToName;
+import com.linkedpipes.discovery.cli.export.JsonExport;
 import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
 import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
 import com.linkedpipes.discovery.cli.factory.FromFileSystem;
@@ -54,8 +56,8 @@ public class AppEntry {
             }
             builder = new FromDiscoveryUrl(cmd.getOptionValue("discovery"));
             if (cmd.hasOption("IHaveBadDiscoveryDefinition")) {
-                ((FromDiscoveryUrl)builder).setIgnoreIssues(true);
-                ((FromDiscoveryUrl)builder).setReport(
+                ((FromDiscoveryUrl) builder).setIgnoreIssues(true);
+                ((FromDiscoveryUrl) builder).setReport(
                         new File(output, "builder-report.txt"));
             }
         } else if (cmd.hasOption("dataset")) {
@@ -159,11 +161,16 @@ public class AppEntry {
                         + "\n    output tree size  : {}",
                 stats.generated, stats.finalSize);
         LOG.info("Exporting ...");
+        NodeToName nodeToName = new NodeToName(root);
         GephiExport.export(root,
                 new File(output, "gephi-edges.csv"),
                 new File(output, "gephi-vertices.csv"),
-                discovery.getApplications());
-        TextExport.export(root, new File(output, "pipelines.txt"));
+                nodeToName, discovery.getApplications());
+        JsonExport.export(
+                discovery, root, new File(output, "pipelines.json"),
+                nodeToName);
+        DataSamplesExport.export(
+                root, nodeToName, new File(output, "data-samples"));
         logMeterRegistry(registry);
         LOG.info("All done.");
     }
