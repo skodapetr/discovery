@@ -100,7 +100,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 continue;
             }
             result.addAll(loadTemplateUrls(
-                    statement.getSubject().stringValue()));
+                    statement.getObject().stringValue()));
         }
         return result;
     }
