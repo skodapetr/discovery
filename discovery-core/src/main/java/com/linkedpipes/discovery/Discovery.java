@@ -15,9 +15,14 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Explore transformations applied to a single data source.
+ */
 public class Discovery {
 
     private static final Logger LOG = LoggerFactory.getLogger(Discovery.class);
@@ -81,6 +86,7 @@ public class Discovery {
             addNewNodes(next.getNext());
         }
         statistics.finalSize = nodes.size();
+        collectStatistics();
         return root;
     }
 
@@ -94,7 +100,7 @@ public class Discovery {
      */
     private void filterNewNodes(Node node) {
         List<Node> filtered = node.getNext().stream()
-                .filter((newNode) -> filter.isNewNode(newNode))
+                .filter(filter::isNewNode)
                 .collect(Collectors.toList());
         node.setNext(filtered);
     }
@@ -102,7 +108,21 @@ public class Discovery {
     private void addNewNodes(List<Node> newNodes) {
         queue.addAll(newNodes);
         nodes.addAll(newNodes);
-        newNodes.forEach((node) -> filter.addNode(node));
+        newNodes.forEach(filter::addNode);
+    }
+
+    /**
+     * Collect statistics that are not collected on runtime.
+     */
+    private void collectStatistics() {
+        Set<Application> applications = new HashSet<>();
+        int pipelineCounter = 0;
+        for (Node node : nodes) {
+            applications.addAll(node.getApplications());
+            pipelineCounter += node.getApplications().size();
+        }
+        statistics.pipelines = pipelineCounter;
+        statistics.uniqApplications = applications.size();
     }
 
     public Dataset getDataset() {

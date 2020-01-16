@@ -53,7 +53,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private final String discoveryUrl;
 
-    private Dataset dataset = null;
+    private List<Dataset> datasets = new ArrayList<>();
 
     private boolean ignoreIssues = false;
 
@@ -64,13 +64,18 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     }
 
     @Override
-    public Discovery create(MeterRegistry registry) throws Exception {
+    public List<Discovery> create(MeterRegistry registry) throws Exception {
+        LOG.info("Collecting templates ...");
         List<String> templates = loadTemplateUrls(discoveryUrl);
+        LOG.info("Loading templates ...");
         loadTemplates(templates);
         checkIsValid();
         FilterStrategy filterStrategy = getFilterStrategy(registry);
-        return new Discovery(
-                dataset, transformers, applications, filterStrategy, registry);
+        return datasets.stream()
+                .map((dataset) -> new Discovery(
+                        dataset, transformers, applications,
+                        filterStrategy, registry))
+                .collect(Collectors.toList());
     }
 
     private List<String> loadTemplateUrls(String url) throws IOException {
@@ -163,11 +168,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 appendToReport("Invalid dataset sample URL: " + sampleUrl);
                 return;
             }
-            if (dataset != null) {
-                LOG.warn("Ignoring dataset: {}", dataset.iri);
-                appendToReport("Ignoring dataset: " + dataset.iri);
-            }
-            dataset = ModelAdapter.loadDataset(iri, dataSample);
+            datasets.add(ModelAdapter.loadDataset(iri, dataSample));
             return;
         }
         throw new Exception("Missing data sample for dataset.");
@@ -184,7 +185,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     }
 
     private void checkIsValid() throws Exception {
-        if (dataset == null) {
+        if (datasets.isEmpty()) {
             appendToReport("Missing dataset.");
             throw new Exception("Missing dataset");
         }

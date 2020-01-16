@@ -6,6 +6,7 @@ import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.NodeToName;
 import com.linkedpipes.discovery.cli.export.JsonExport;
+import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
 import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
 import com.linkedpipes.discovery.cli.factory.FromFileSystem;
@@ -29,6 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -90,7 +94,7 @@ public class AppEntry {
         Options options = new Options();
 
         Option discovery = new Option(
-                "d", "discovery", true, "url of an discovery to run");
+                "d", "discovery", true, "url of a discovery to run");
         discovery.setRequired(false);
         options.addOption(discovery);
 
@@ -144,22 +148,36 @@ public class AppEntry {
         }
     }
 
-    private void runDiscovery(
-            DiscoveryBuilder builder, int limit, File output)
+    static void runDiscovery(
+            DiscoveryBuilder builder, int limit, File outputRoot)
             throws Exception {
         SimpleMeterRegistry memoryRegistry = new SimpleMeterRegistry();
         CompositeMeterRegistry registry = new CompositeMeterRegistry();
         registry.add(memoryRegistry);
         new JvmMemoryMetrics().bindTo(registry);
         new JvmGcMetrics().bindTo(registry);
-        Discovery discovery = builder.create(registry);
-        LOG.info("Running exploration...");
-        Node root = discovery.explore(limit);
-        ExplorerStatistics stats = discovery.getStatistics();
-        LOG.info("Exploration statistics:"
-                        + "\n    generated         : {}"
-                        + "\n    output tree size  : {}",
-                stats.generated, stats.finalSize);
+        Map<String, ExplorerStatistics> statistics = new HashMap<>();
+        for (Discovery discovery : builder.create(registry)) {
+            LOG.info("Running exploration for: {}", discovery.getDataset().iri);
+            Node root = discovery.explore(limit);
+            ExplorerStatistics stats = discovery.getStatistics();
+            LOG.info("Exploration statistics:"
+                            + "\n    generated         : {}"
+                            + "\n    output tree size  : {}",
+                    stats.generated, stats.finalSize);
+            String outputName =
+                    "discovery_" + String.format("%03d", statistics.size());
+            File output = new File(outputRoot, outputName);
+            export(discovery, root, output);
+            statistics.put(outputName, stats);
+        }
+        SummaryExport.export(statistics, new File(outputRoot, "summary.csv"));
+        logMeterRegistry(registry);
+        LOG.info("All done.");
+    }
+
+    private static void export(Discovery discovery, Node root, File output)
+            throws IOException {
         LOG.info("Exporting ...");
         NodeToName nodeToName = new NodeToName(root);
         GephiExport.export(root,
@@ -171,11 +189,9 @@ public class AppEntry {
                 nodeToName);
         DataSamplesExport.export(
                 root, nodeToName, new File(output, "data-samples"));
-        logMeterRegistry(registry);
-        LOG.info("All done.");
     }
 
-    static void logMeterRegistry(MeterRegistry registry) {
+    private static void logMeterRegistry(MeterRegistry registry) {
         LOG.info("Runtime statistics:");
         logTimeSummary(registry.timer(MeterNames.CREATE_REPOSITORY));
         logTimeSummary(registry.timer(MeterNames.UPDATE_DATA));

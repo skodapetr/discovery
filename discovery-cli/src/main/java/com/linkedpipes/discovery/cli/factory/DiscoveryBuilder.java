@@ -76,6 +76,7 @@ public abstract class DiscoveryBuilder {
         }
     }
 
-    public abstract Discovery create(MeterRegistry registry) throws Exception;
+    public abstract List<Discovery> create(MeterRegistry registry)
+            throws Exception;
 
 }

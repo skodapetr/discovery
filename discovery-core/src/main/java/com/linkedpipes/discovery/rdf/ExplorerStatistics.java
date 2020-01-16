@@ -20,4 +20,14 @@ public class ExplorerStatistics {
      */
     public int filteredOut;
 
+    /**
+     * Number of pipelines, i.e. count of all applications on all nodes.
+     */
+    public int pipelines;
+
+    /**
+     * Number of unique matching application in the whole tree.
+     */
+    public int uniqApplications;
+
 }

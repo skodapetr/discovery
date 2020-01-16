@@ -8,6 +8,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class FromFileSystem extends DiscoveryBuilder {
 
@@ -18,15 +20,16 @@ public class FromFileSystem extends DiscoveryBuilder {
     }
 
     @Override
-    public Discovery create(MeterRegistry registry) throws IOException {
+    public List<Discovery> create(MeterRegistry registry) throws IOException {
         String name = directory.getName();
         String datasetIri = "http://localhost/" + name;
         File datasetSampleFile = new File(directory, "sample.ttl");
         Dataset dataset = new Dataset(
                 datasetIri, RdfAdapter.asStatements(datasetSampleFile));
         FilterStrategy filterStrategy = getFilterStrategy(registry);
-        return new Discovery(
+        Discovery discovery = new Discovery(
                 dataset, transformers, applications, filterStrategy, registry);
+        return Collections.singletonList(discovery);
     }
 
 }
