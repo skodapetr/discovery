@@ -58,7 +58,8 @@ public class JsonExport {
             throws IOException {
         List<Pipeline> pipelines = new ArrayList<>();
         root.accept((node) -> {
-            pipelines.addAll(nodeToPipelines(discovery, nodeToName, node));
+            pipelines.addAll(
+                    nodeToPipelines(discovery, nodeToName, root, node));
         });
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -69,18 +70,18 @@ public class JsonExport {
     }
 
     private static List<Pipeline> nodeToPipelines(
-            Discovery discovery, NodeToName nodeToName, Node finalNode) {
+            Discovery discovery, NodeToName nodeToName,
+            Node root, Node finalNode) {
         if (finalNode.getApplications().isEmpty()) {
             return Collections.emptyList();
         }
-        List<Node> nodes = collectNodes(finalNode);
+        List<Node> nodes = collectNodesWithoutRoot(finalNode);
         List<Component> components = new ArrayList<>();
         // Root as a data source.
         components.add(new Component(
-                nodeToName.name(nodes.get(0)),
+                nodeToName.name(root),
                 discovery.getDataset().iri,
                 "Data source"));
-        nodes.remove(0);
         // Transformers.
         for (Node node : nodes) {
             components.add(new Component(
@@ -102,7 +103,7 @@ public class JsonExport {
                 .collect(Collectors.toList());
     }
 
-    private static List<Node> collectNodes(Node node) {
+    private static List<Node> collectNodesWithoutRoot(Node node) {
         List<Node> result = new ArrayList<>();
         Node prev = node;
         while (prev != null) {

@@ -17,7 +17,7 @@ public class NodeToName {
     public NodeToName(Node root) {
         root.accept((node) -> names.put(node, nextName()));
         // Force root to be root.
-        names.put(root, "_0000");
+        names.put(root, "root_0000");
     }
 
     private String nextName() {
