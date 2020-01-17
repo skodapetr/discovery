@@ -27,7 +27,7 @@ public class SummaryExport {
                         entry.getKey(),
                         Integer.toString(stats.pipelines),
                         Integer.toString(stats.finalSize),
-                        Integer.toString(stats.uniqApplications)
+                        Integer.toString(stats.applications.size())
                 };
                 writer.writeNext(row);
             }

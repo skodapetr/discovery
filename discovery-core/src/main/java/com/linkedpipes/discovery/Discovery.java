@@ -122,7 +122,10 @@ public class Discovery {
             pipelineCounter += node.getApplications().size();
         }
         statistics.pipelines = pipelineCounter;
-        statistics.uniqApplications = applications.size();
+        statistics.applications = applications
+                .stream()
+                .map((application -> application.iri))
+                .collect(Collectors.toSet());
     }
 
     public Dataset getDataset() {

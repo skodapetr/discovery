@@ -65,7 +65,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     @Override
     public List<Discovery> create(MeterRegistry registry) throws Exception {
-        LOG.info("Collecting templates ...");
+        LOG.info("Collecting templates for: {}", discoveryUrl);
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
         loadTemplates(templates);

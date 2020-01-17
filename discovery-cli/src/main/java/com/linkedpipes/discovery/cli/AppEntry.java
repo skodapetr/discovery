@@ -51,6 +51,15 @@ public class AppEntry {
         CommandLine cmd = parseArgs(args);
         DiscoveryBuilder builder = null;
         File output = new File(cmd.getOptionValue("output"));
+        int limit = Integer.parseInt(cmd.getOptionValue("limit", "-1"));
+        if (cmd.hasOption("experiment")) {
+            // An experiment is handled by a different class.
+            ExperimentRunner runner = new ExperimentRunner(
+                    cmd.hasOption("IHaveBadDiscoveryDefinition"),
+                    limit);
+            runner.run(cmd.getOptionValue("experiment"), output);
+            return;
+        }
         if (cmd.hasOption("discovery")) {
             if (cmd.hasOption("dataset")) {
                 System.out.println(
@@ -83,15 +92,17 @@ public class AppEntry {
         if (cmd.hasOption("filter")) {
             builder.setFilterStrategy(cmd.getOptionValue("filter"));
         }
-        runDiscovery(
-                builder,
-                Integer.parseInt(cmd.getOptionValue("limit", "-1")),
-                output);
+        runDiscovery(builder, limit, output);
     }
 
     @SuppressFBWarnings(value = {"DM_EXIT"})
     private CommandLine parseArgs(String[] args) {
         Options options = new Options();
+
+        Option experiment = new Option(
+                "e", "experiment", true, "url of a experiment to run");
+        experiment.setRequired(false);
+        options.addOption(experiment);
 
         Option discovery = new Option(
                 "d", "discovery", true, "url of a discovery to run");
@@ -148,7 +159,7 @@ public class AppEntry {
         }
     }
 
-    static void runDiscovery(
+    static Map<String, ExplorerStatistics> runDiscovery(
             DiscoveryBuilder builder, int limit, File outputRoot)
             throws Exception {
         SimpleMeterRegistry memoryRegistry = new SimpleMeterRegistry();
@@ -174,6 +185,7 @@ public class AppEntry {
         SummaryExport.export(statistics, new File(outputRoot, "summary.csv"));
         logMeterRegistry(registry);
         LOG.info("All done.");
+        return statistics;
     }
 
     private static void export(Discovery discovery, Node root, File output)

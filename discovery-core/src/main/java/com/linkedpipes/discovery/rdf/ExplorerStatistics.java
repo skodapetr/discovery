@@ -2,6 +2,9 @@ package com.linkedpipes.discovery.rdf;
 
 import com.linkedpipes.discovery.SuppressFBWarnings;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @SuppressFBWarnings(value = {"URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"})
 public class ExplorerStatistics {
 
@@ -26,8 +29,8 @@ public class ExplorerStatistics {
     public int pipelines;
 
     /**
-     * Number of unique matching application in the whole tree.
+     * Matching application in the whole tree.
      */
-    public int uniqApplications;
+    public Set<String> applications = new HashSet<>();
 
 }
