@@ -19,7 +19,9 @@ $ java -jar discovery.jar
 ```
 
 ### Arguments
-- *-d*, *--discovery* - URL of experiment specification. A dataset, 
+- *-e*, *--experiment* - URL of an experiment specification. Experiment
+   consists of multiple discoveries.
+- *-d*, *--discovery* - URL of discovery specification. A dataset, 
     applications and transformers are loaded from the discovery definition.
 - *--dataset* - Path to dataset directory on local file system, 
     can't be used together with *experiment*.
