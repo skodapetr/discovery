@@ -229,6 +229,7 @@ public class TestModelAdapter {
     public void loadDataset() throws IOException {
         Dataset actual = ModelAdapter.loadDataset(
                 "http://localhost/dataset",
+                "Local dataset",
                 TestResources.file("model/business-entities-cz-ares"));
         Assertions.assertEquals(
                 "http://localhost/dataset",

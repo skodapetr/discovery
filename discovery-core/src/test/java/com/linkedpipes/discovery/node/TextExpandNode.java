@@ -32,6 +32,7 @@ public class TextExpandNode {
         List<Dataset> datasets = Arrays.asList(
                 ModelAdapter.loadDataset(
                         "http://nkod",
+                        "NKOD",
                         TestResources.file(
                                 "pipeline/dataset/nkod-dcterms")));
 
@@ -65,6 +66,7 @@ public class TextExpandNode {
         List<Dataset> datasets = Arrays.asList(
                 ModelAdapter.loadDataset(
                         "http://nkod",
+                        "NKOD",
                         TestResources.file(
                                 "pipeline/dataset/nkod-dcterms")));
         Node root = new Node(datasets);

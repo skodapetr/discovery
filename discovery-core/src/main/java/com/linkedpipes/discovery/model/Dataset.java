@@ -1,6 +1,7 @@
 package com.linkedpipes.discovery.model;
 
 import com.linkedpipes.discovery.SuppressFBWarnings;
+import com.linkedpipes.discovery.rdf.LangString;
 import org.eclipse.rdf4j.model.Statement;
 
 import java.util.ArrayList;
@@ -14,6 +15,8 @@ public class Dataset {
                     + "DataSourceTemplate";
 
     public String iri;
+
+    public LangString title = new LangString();
 
     public List<Statement> sample = new ArrayList<>();
 

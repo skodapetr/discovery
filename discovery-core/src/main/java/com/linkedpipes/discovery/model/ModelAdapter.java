@@ -1,5 +1,6 @@
 package com.linkedpipes.discovery.model;
 
+import com.linkedpipes.discovery.rdf.LangString;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.StatementUtils;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
@@ -256,17 +257,36 @@ public final class ModelAdapter {
         return result;
     }
 
-    public static Dataset loadDataset(String iri, File directory)
+    public static Dataset loadDataset(String iri, String label, File directory)
             throws IOException {
-        return loadDataset(
-                iri,
-                RdfAdapter.asStatements(new File(directory, "sample.ttl")));
-    }
-
-    public static Dataset loadDataset(String iri, List<Statement> sample) {
         Dataset result = new Dataset();
         result.iri = iri;
+        result.title = LangString.instance(label);
+        result.sample =
+                RdfAdapter.asStatements(new File(directory, "sample.ttl"));
+        return result;
+    }
+
+    public static Dataset loadDataset(
+            Resource resource,
+            List<Statement> statements,
+            List<Statement> sample) {
+        Dataset result = new Dataset();
+        result.iri = resource.stringValue();
         result.sample = sample;
+        for (Statement statement : statements) {
+            if (!resource.equals(statement.getSubject())) {
+                continue;
+            }
+            Value object = statement.getObject();
+            switch (statement.getPredicate().stringValue()) {
+                case DCTERMS.HAS_TITLE:
+                    result.title.add(object);
+                    break;
+                default:
+                    break;
+            }
+        }
         return result;
     }
 

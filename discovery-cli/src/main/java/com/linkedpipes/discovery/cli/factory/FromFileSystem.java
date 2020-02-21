@@ -28,6 +28,7 @@ public class FromFileSystem extends DiscoveryBuilder {
                 datasetIri, RdfAdapter.asStatements(datasetSampleFile));
         FilterStrategy filterStrategy = getFilterStrategy(registry);
         Discovery discovery = new Discovery(
+                directory.toURI().toString(),
                 dataset, transformers, applications, filterStrategy, registry);
         return Collections.singletonList(discovery);
     }

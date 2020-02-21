@@ -5,16 +5,16 @@ import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.NodeToName;
-import com.linkedpipes.discovery.cli.export.JsonExport;
+import com.linkedpipes.discovery.cli.export.JsonPipelineExport;
 import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
 import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
 import com.linkedpipes.discovery.cli.factory.FromFileSystem;
 import com.linkedpipes.discovery.cli.export.GephiExport;
+import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.rdf.ExplorerStatistics;
+import com.linkedpipes.discovery.DiscoveryStatistics;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
@@ -31,8 +31,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -92,7 +94,12 @@ public class AppEntry {
         if (cmd.hasOption("filter")) {
             builder.setFilterStrategy(cmd.getOptionValue("filter"));
         }
-        runDiscovery(builder, limit, output);
+        MeterRegistry registry = createMeterRegistry();
+        Instant start = Instant.now();
+        runDiscovery(builder, limit, registry, output);
+        logMeterRegistry(registry);
+        LOG.info("All done in: {} min",
+                Duration.between(start, Instant.now()).toMinutes());
     }
 
     @SuppressFBWarnings(value = {"DM_EXIT"})
@@ -159,64 +166,69 @@ public class AppEntry {
         }
     }
 
-    static Map<String, ExplorerStatistics> runDiscovery(
-            DiscoveryBuilder builder, int limit, File outputRoot)
-            throws Exception {
+    static MeterRegistry createMeterRegistry() {
         SimpleMeterRegistry memoryRegistry = new SimpleMeterRegistry();
         CompositeMeterRegistry registry = new CompositeMeterRegistry();
         registry.add(memoryRegistry);
         new JvmMemoryMetrics().bindTo(registry);
         new JvmGcMetrics().bindTo(registry);
-        Map<String, ExplorerStatistics> statistics = new HashMap<>();
+        return registry;
+    }
+
+    static List<DiscoveryStatisticsInPath> runDiscovery(
+            DiscoveryBuilder builder, int limit,
+            MeterRegistry registry, File outputRoot)
+            throws Exception {
+        List<DiscoveryStatisticsInPath> statistics = new ArrayList<>();
         for (Discovery discovery : builder.create(registry)) {
-            LOG.info("Running exploration for: {}", discovery.getDataset().iri);
             Node root = discovery.explore(limit);
-            ExplorerStatistics stats = discovery.getStatistics();
-            LOG.info("Exploration statistics:"
-                            + "\n    generated         : {}"
-                            + "\n    output tree size  : {}",
-                    stats.generated, stats.finalSize);
-            String outputName =
-                    "discovery_" + String.format("%03d", statistics.size());
+            DiscoveryStatistics stats = discovery.getStatistics();
+            String outputName = "discovery_"
+                    + String.format("%03d", statistics.size());
             File output = new File(outputRoot, outputName);
             export(discovery, root, output);
-            statistics.put(outputName, stats);
+            statistics.add(new DiscoveryStatisticsInPath(stats, outputName));
         }
-        SummaryExport.export(statistics, new File(outputRoot, "summary.csv"));
-        logMeterRegistry(registry);
-        LOG.info("All done.");
+        SummaryExport.export(statistics, outputRoot);
         return statistics;
     }
 
     private static void export(Discovery discovery, Node root, File output)
             throws IOException {
-        LOG.info("Exporting ...");
+        LOG.debug("Exporting ...");
         NodeToName nodeToName = new NodeToName(root);
         GephiExport.export(root,
                 new File(output, "gephi-edges.csv"),
                 new File(output, "gephi-vertices.csv"),
                 nodeToName, discovery.getApplications());
-        JsonExport.export(
+        JsonPipelineExport.export(
                 discovery, root, new File(output, "pipelines.json"),
                 nodeToName);
         DataSamplesExport.export(
                 root, nodeToName, new File(output, "data-samples"));
     }
 
-    private static void logMeterRegistry(MeterRegistry registry) {
-        LOG.info("Runtime statistics:");
-        logTimeSummary(registry.timer(MeterNames.CREATE_REPOSITORY));
-        logTimeSummary(registry.timer(MeterNames.UPDATE_DATA));
-        logTimeSummary(registry.timer(MeterNames.MATCH_DATA));
-        logTimeSummary(registry.timer(MeterNames.FILTER_ISOMORPHIC));
-        logTimeSummary(registry.timer(MeterNames.FILTER_DIFF_CREATE));
-        logTimeSummary(registry.timer(MeterNames.FILTER_DIFF_FILTER));
-    }
-
-    private static void logTimeSummary(Timer timer) {
-        LOG.info("  {} total: {} s",
-                timer.getId().getName(),
-                (int) timer.totalTime(TimeUnit.SECONDS));
+    static void logMeterRegistry(MeterRegistry registry) {
+        String message = "Runtime statistics:" + System.lineSeparator()
+                + "    repository create:  %8d s" + System.lineSeparator()
+                + "    repository update:  %8d s" + System.lineSeparator()
+                + "    repository ask:     %8d s" + System.lineSeparator()
+                + "    filter.isomorphic:  %8d s" + System.lineSeparator()
+                + "    filter.diff.create: %8d s" + System.lineSeparator()
+                + "    filter.diff.match:  %8d s" + System.lineSeparator();
+        LOG.info(String.format(message,
+                (int) registry.timer(MeterNames.CREATE_REPOSITORY)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.UPDATE_DATA)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.MATCH_DATA)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.FILTER_ISOMORPHIC)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.FILTER_DIFF_CREATE)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.FILTER_DIFF_FILTER)
+                        .totalTime(TimeUnit.SECONDS)));
     }
 
 }

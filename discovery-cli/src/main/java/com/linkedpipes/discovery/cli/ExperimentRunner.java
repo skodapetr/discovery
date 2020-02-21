@@ -4,8 +4,9 @@ import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
 import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
-import com.linkedpipes.discovery.rdf.ExplorerStatistics;
+import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -17,10 +18,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Entry point for running experiments ~ collections of discoveries.
@@ -49,18 +50,27 @@ public class ExperimentRunner {
     }
 
     public void run(String url, File outputRoot) throws Exception {
+        Instant start = Instant.now();
         List<String> discoveries = getDiscoveries(url);
-        LOG.info("Collected {} discoveries in experiment.", discoveries.size());
-        Map<String, ExplorerStatistics> result = new LinkedHashMap<>();
+        LOG.info("Collected {} discoveries in experiment {}",
+                discoveries.size(), url);
+        List<DiscoveryStatisticsInPath> result = new ArrayList<>();
+        MeterRegistry registry = AppEntry.createMeterRegistry();
         for (int index = 0; index < discoveries.size(); ++index) {
             String name = String.format("%03d", index);
             File output = new File(outputRoot, name);
             DiscoveryBuilder builder = prepareDiscoveryBuilder(
                     discoveries.get(index), output);
-            var stats = AppEntry.runDiscovery(builder, iterationLimit, output);
-            result.put(name, aggregateResults(stats));
+            var stats = AppEntry.runDiscovery(
+                    builder, iterationLimit, registry, output);
+            // Modify path to reflect location in a subdirectory.
+            stats.forEach(item -> item.path = name + "/" + item.path);
+            result.addAll(stats);
         }
-        SummaryExport.export(result, new File(outputRoot, "summary.csv"));
+        AppEntry.logMeterRegistry(registry);
+        SummaryExport.export(result, outputRoot);
+        LOG.info("All done in: {} min",
+                Duration.between(start, Instant.now()).toMinutes());
     }
 
     @SuppressFBWarnings(value = {"DM_EXIT"})
@@ -137,19 +147,6 @@ public class ExperimentRunner {
             builder.setReport(new File(output, "builder-report.txt"));
         }
         return builder;
-    }
-
-    private ExplorerStatistics aggregateResults(
-            Map<String, ExplorerStatistics> statistics) {
-        ExplorerStatistics result = new ExplorerStatistics();
-        for (ExplorerStatistics record : statistics.values()) {
-            result.applications.addAll(record.applications);
-            result.pipelines += record.pipelines;
-            result.filteredOut += record.finalSize;
-            result.generated += record.generated;
-            result.finalSize += record.finalSize;
-        }
-        return result;
     }
 
 }

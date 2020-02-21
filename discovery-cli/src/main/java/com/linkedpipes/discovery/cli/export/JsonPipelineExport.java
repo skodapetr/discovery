@@ -14,7 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JsonExport {
+public class JsonPipelineExport {
 
     private static class Component {
 

@@ -5,6 +5,8 @@ package com.linkedpipes.discovery;
  */
 public final class MeterNames {
 
+    public static final String TOTAL_TIME = "time";
+
     public static final String CREATE_REPOSITORY = "repository.create";
 
     public static final String UPDATE_DATA = "data.update";

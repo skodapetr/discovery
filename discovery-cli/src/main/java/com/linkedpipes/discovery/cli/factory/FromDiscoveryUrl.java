@@ -10,6 +10,7 @@ import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -69,11 +70,17 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
         loadTemplates(templates);
+        LOG.info(
+                "Templates loaded "
+                        + "applications: {} transformers: {} datasets: {}",
+                applications.size(),
+                transformers.size(),
+                datasets.size());
         checkIsValid();
         FilterStrategy filterStrategy = getFilterStrategy(registry);
         return datasets.stream()
                 .map((dataset) -> new Discovery(
-                        dataset, transformers, applications,
+                        discoveryUrl, dataset, transformers, applications,
                         filterStrategy, registry))
                 .collect(Collectors.toList());
     }
@@ -133,7 +140,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 }
                 switch (statement.getObject().stringValue()) {
                     case Dataset.TYPE:
-                        onDataset(url, statements);
+                        onDataset(statement.getSubject(), statements);
                         break;
                     case Application.TYPE:
                         onApplication(statements);
@@ -148,7 +155,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         }
     }
 
-    private void onDataset(String iri, List<Statement> statements)
+    private void onDataset(Resource iri, List<Statement> statements)
             throws Exception {
         for (Statement statement : statements) {
             if (!statement.getPredicate().equals(HAS_DATA_SAMPLE)) {
@@ -164,11 +171,11 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 }
                 LOG.warn(
                         "Can't resolve dataset sample on {} for {}",
-                        sampleUrl, iri, ex);
+                        sampleUrl, iri.stringValue(), ex);
                 appendToReport("Invalid dataset sample URL: " + sampleUrl);
                 return;
             }
-            datasets.add(ModelAdapter.loadDataset(iri, dataSample));
+            datasets.add(ModelAdapter.loadDataset(iri, statements, dataSample));
             return;
         }
         throw new Exception("Missing data sample for dataset.");
