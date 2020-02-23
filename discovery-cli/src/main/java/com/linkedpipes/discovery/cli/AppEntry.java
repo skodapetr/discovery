@@ -227,14 +227,14 @@ public class AppEntry {
 
     static void logMeterRegistry(MeterRegistry registry) {
         String message = "Runtime statistics:" + System.lineSeparator()
-                + "    total time       :  %8d s" + System.lineSeparator()
-                + "    file system IO   :  %8d s" + System.lineSeparator()
-                + "    repository create:  %8d s" + System.lineSeparator()
-                + "    repository update:  %8d s" + System.lineSeparator()
-                + "    repository ask:     %8d s" + System.lineSeparator()
-                + "    filter.isomorphic:  %8d s" + System.lineSeparator()
-                + "    filter.diff.create: %8d s" + System.lineSeparator()
-                + "    filter.diff.match:  %8d s" + System.lineSeparator();
+                + "    total time        :  %8d s" + System.lineSeparator()
+                + "    file system IO    :  %8d s" + System.lineSeparator()
+                + "    repository create :  %8d s" + System.lineSeparator()
+                + "    repository update :  %8d s" + System.lineSeparator()
+                + "    repository ask    :  %8d s" + System.lineSeparator()
+                + "    filter.isomorphic :  %8d s" + System.lineSeparator()
+                + "    filter.diff.create:  %8d s" + System.lineSeparator()
+                + "    filter.diff.match :  %8d s" + System.lineSeparator();
         LOG.info(String.format(message,
                 (int) registry.timer(MeterNames.DISCOVERY_TIME)
                         .totalTime(TimeUnit.SECONDS),
