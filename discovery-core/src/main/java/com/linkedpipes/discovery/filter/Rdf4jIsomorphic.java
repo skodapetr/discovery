@@ -1,12 +1,16 @@
 package com.linkedpipes.discovery.filter;
 
+import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.node.Node;
+import com.linkedpipes.discovery.node.NodeFacade;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.util.Models;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,9 +31,12 @@ public class Rdf4jIsomorphic implements FilterStrategy {
      */
     private List<List<Statement>> samples = null;
 
-    private Timer timer;
+    private final NodeFacade nodeFacade;
 
-    public Rdf4jIsomorphic(MeterRegistry registry) {
+    private final Timer timer;
+
+    public Rdf4jIsomorphic(NodeFacade nodeFacade, MeterRegistry registry) {
+        this.nodeFacade = nodeFacade;
         this.timer = registry.timer(MeterNames.FILTER_ISOMORPHIC);
     }
 
@@ -39,21 +46,24 @@ public class Rdf4jIsomorphic implements FilterStrategy {
     }
 
     @Override
-    public void addNode(Node node) {
-        samples.add(node.getDataSample());
+    public void addNode(Node node) throws DiscoveryException {
+        samples.add(nodeFacade.getDataSample(node));
     }
 
     @Override
-    public boolean isNewNode(Node node) {
-        return timer.record(() -> {
-            List<Statement> nodeSample = node.getDataSample();
+    public boolean isNewNode(Node node) throws DiscoveryException {
+        Instant start = Instant.now();
+        try {
+            List<Statement> nodeSample = nodeFacade.getDataSample(node);
             for (List<Statement> visitedSample : samples) {
                 if (Models.isomorphic(nodeSample, visitedSample)) {
                     return false;
                 }
             }
             return true;
-        });
+        } finally {
+            timer.record(Duration.between(start, Instant.now()));
+        }
     }
 
 }

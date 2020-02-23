@@ -1,5 +1,6 @@
 package com.linkedpipes.discovery.node;
 
+import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.TestResources;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
@@ -21,13 +22,16 @@ public class TextExpandNode {
             new SimpleMeterRegistry();
 
     @Test
-    public void findDCTermsInNkod() throws UnexpectedInput, IOException {
+    public void findDCTermsInNkod()
+            throws UnexpectedInput, IOException, DiscoveryException {
         List<Application> applications = Arrays.asList(
                 ModelAdapter.loadApplication(TestResources.asStatements(
                         "pipeline/application/dcterms.ttl")));
 
         ExpandNode expander = new ExpandNode(
-                applications, Collections.emptyList(), memoryRegistry);
+                applications, Collections.emptyList(),
+                NodeFacade.withMemoryStorage(),
+                memoryRegistry);
 
         List<Dataset> datasets = Arrays.asList(
                 ModelAdapter.loadDataset(
@@ -48,7 +52,8 @@ public class TextExpandNode {
     }
 
     @Test
-    public void findTimelineInNkod() throws UnexpectedInput, IOException {
+    public void findTimelineInNkod()
+            throws UnexpectedInput, IOException, DiscoveryException {
         List<Application> applications = Arrays.asList(
                 ModelAdapter.loadApplication(TestResources.asStatements(
                         "pipeline/application/dcterms.ttl")),
@@ -61,7 +66,9 @@ public class TextExpandNode {
                                 + "dcterms-issued-to-dcterms-date.ttl")));
 
         ExpandNode expander = new ExpandNode(
-                applications, transformers, memoryRegistry);
+                applications, transformers,
+                NodeFacade.withMemoryStorage(),
+                memoryRegistry);
 
         List<Dataset> datasets = Arrays.asList(
                 ModelAdapter.loadDataset(

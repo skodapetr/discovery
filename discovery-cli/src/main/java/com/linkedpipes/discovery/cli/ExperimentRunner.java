@@ -59,10 +59,11 @@ public class ExperimentRunner {
         for (int index = 0; index < discoveries.size(); ++index) {
             String name = String.format("%03d", index);
             File output = new File(outputRoot, name);
+            File working = new File(output, "working");
             DiscoveryBuilder builder = prepareDiscoveryBuilder(
                     discoveries.get(index), output);
             var stats = AppEntry.runDiscovery(
-                    builder, iterationLimit, registry, output);
+                    builder, iterationLimit, registry, output, working);
             // Modify path to reflect location in a subdirectory.
             stats.forEach(item -> item.path = name + "/" + item.path);
             result.addAll(stats);

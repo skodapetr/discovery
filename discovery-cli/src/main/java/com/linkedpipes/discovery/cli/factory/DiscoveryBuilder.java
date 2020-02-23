@@ -8,6 +8,7 @@ import com.linkedpipes.discovery.filter.Rdf4jIsomorphic;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.node.NodeFacade;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,6 +27,13 @@ public abstract class DiscoveryBuilder {
             LoggerFactory.getLogger(DiscoveryBuilder.class);
 
     private static final String DEFAULT_FILTER_STRATEGY = "diff";
+
+    @FunctionalInterface
+    public interface DirectorySource {
+
+        File get(String discoveryIri);
+
+    }
 
     private String filterStrategyName = DEFAULT_FILTER_STRATEGY;
 
@@ -63,12 +71,13 @@ public abstract class DiscoveryBuilder {
         filterStrategyName = name;
     }
 
-    protected FilterStrategy getFilterStrategy(MeterRegistry meterRegistry) {
+    protected FilterStrategy getFilterStrategy(
+            NodeFacade nodeFacade, MeterRegistry meterRegistry) {
         switch (filterStrategyName) {
             case "diff":
-                return new DiffBasedFilter(meterRegistry);
+                return new DiffBasedFilter(nodeFacade, meterRegistry);
             case "isomorphic":
-                return new Rdf4jIsomorphic(meterRegistry);
+                return new Rdf4jIsomorphic(nodeFacade, meterRegistry);
             case "no-filter":
                 return new NoFilter();
             default:
@@ -76,7 +85,8 @@ public abstract class DiscoveryBuilder {
         }
     }
 
-    public abstract List<Discovery> create(MeterRegistry registry)
+    public abstract List<Discovery> create(
+            MeterRegistry registry, DirectorySource directorySource)
             throws Exception;
 
 }

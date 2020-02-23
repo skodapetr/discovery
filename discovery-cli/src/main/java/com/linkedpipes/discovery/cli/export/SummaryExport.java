@@ -102,7 +102,8 @@ public class SummaryExport {
                 String[] row = {
                         groupEntry.getKey(),
                         Integer.toString(stats.pipelinesCount()),
-                        Long.toString(stats.meters.get(MeterNames.TOTAL_TIME)),
+                        Long.toString(
+                                stats.meters.get(MeterNames.DISCOVERY_TIME)),
                         Integer.toString(stats.applications.size()),
                         Integer.toString(groupEntry.getValue().size()),
                         Integer.toString(stats.transformers.size())

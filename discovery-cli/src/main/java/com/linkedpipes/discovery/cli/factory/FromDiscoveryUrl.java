@@ -6,6 +6,7 @@ import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.node.NodeFacade;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -65,7 +66,9 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     }
 
     @Override
-    public List<Discovery> create(MeterRegistry registry) throws Exception {
+    public List<Discovery> create(
+            MeterRegistry registry, DirectorySource directorySource)
+            throws Exception {
         LOG.info("Collecting templates for: {}", discoveryUrl);
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
@@ -77,12 +80,14 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 transformers.size(),
                 datasets.size());
         checkIsValid();
-        FilterStrategy filterStrategy = getFilterStrategy(registry);
-        return datasets.stream()
-                .map((dataset) -> new Discovery(
-                        discoveryUrl, dataset, transformers, applications,
-                        filterStrategy, registry))
-                .collect(Collectors.toList());
+        List<Discovery> result = new ArrayList<>();
+        for (int index = 0; index < datasets.size(); ++index) {
+            String iri = discoveryUrl + "/" + index;
+            result.add(createDiscovery(
+                    iri, datasets.get(index),
+                    registry, directorySource.get(iri)));
+        }
+        return result;
     }
 
     private List<String> loadTemplateUrls(String url) throws IOException {
@@ -218,6 +223,18 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     public void setReport(File report) {
         this.report = report;
+    }
+
+    private Discovery createDiscovery(
+            String iri, Dataset dataset,
+            MeterRegistry registry, File directory) {
+        NodeFacade nodeFacade = NodeFacade.withFileSystemStorage(
+                new File(directory, "node-service"), registry);
+        FilterStrategy filterStrategy = getFilterStrategy(
+                nodeFacade, registry);
+        return new Discovery(
+                iri, dataset, transformers, applications,
+                filterStrategy, nodeFacade, registry);
     }
 
 }

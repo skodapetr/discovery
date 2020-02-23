@@ -3,9 +3,7 @@ package com.linkedpipes.discovery.node;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
-import org.eclipse.rdf4j.model.Statement;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,35 +24,24 @@ public class Node {
      */
     private List<Application> applications;
 
-    /**
-     * Data sample in this node.
-     */
-    private final List<Statement> dataSample;
-
     private final Node previous;
 
     private List<Node> next = Collections.emptyList();
 
     private final int level;
 
-    public Node(List<Dataset> sources) {
+    Node(List<Dataset> sources) {
         this.sources = sources;
         this.transformer = null;
         this.applications = Collections.emptyList();
-        this.dataSample = new ArrayList<>();
-        sources.forEach((source) -> this.dataSample.addAll(source.sample));
         this.previous = null;
         this.level = 0;
     }
 
-    public Node(
-            Node previous,
-            Transformer transformer,
-            List<Statement> dataSample) {
+    Node(Node previous, Transformer transformer) {
         this.sources = previous.sources;
         this.transformer = transformer;
         this.applications = Collections.emptyList();
-        this.dataSample = dataSample;
         this.previous = previous;
         this.level = previous.level + 1;
     }
@@ -77,10 +64,6 @@ public class Node {
 
     public boolean hasApplication() {
         return !applications.isEmpty();
-    }
-
-    public List<Statement> getDataSample() {
-        return Collections.unmodifiableList(dataSample);
     }
 
     public Node getPrevious() {

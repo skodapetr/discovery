@@ -6,17 +6,20 @@ import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.node.ExpandNode;
 import com.linkedpipes.discovery.node.Node;
+import com.linkedpipes.discovery.node.NodeFacade;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Explore transformations applied to a single data source.
@@ -51,23 +54,33 @@ public class Discovery {
 
     private Instant currentLevelStart;
 
+    private NodeFacade nodeFacade;
+
+    private final Timer discoveryTimer;
+
     public Discovery(
             String iri,
             Dataset dataset,
             List<Transformer> transformers,
             List<Application> applications,
             FilterStrategy filter,
+            NodeFacade nodeFacade,
             MeterRegistry registry) {
         this.iri = iri;
         this.dataset = dataset;
         this.transformers = transformers;
         this.applications = applications;
-        this.expander = new ExpandNode(applications, transformers, registry);
+        this.nodeFacade = nodeFacade;
+        this.expander = new ExpandNode(
+                applications, transformers, nodeFacade, registry);
         this.filter = filter;
+        //
+        this.discoveryTimer =
+                registry.timer(MeterNames.DISCOVERY_TIME);
     }
 
     @SuppressFBWarnings(value = {"DM_GC"})
-    public Node explore(int levelLimit) {
+    public Node explore(int levelLimit) throws DiscoveryException {
         // At the start of each exploration cycle we ask for a GC, it may
         // not happen but it may help to get better values for the memory
         // usage.
@@ -118,11 +131,11 @@ public class Discovery {
         currentLevelStart = Instant.now();
     }
 
-    private Node createRoot() {
-        return new Node(Collections.singletonList(dataset));
+    private Node createRoot() throws DiscoveryException {
+        return nodeFacade.createNode(Collections.singletonList(dataset));
     }
 
-    private void initializeExploration(Node root) {
+    private void initializeExploration(Node root) throws DiscoveryException {
         filter.init(root);
         queue.add(root);
     }
@@ -149,8 +162,11 @@ public class Discovery {
     private void finalizeStatisticsForCurrentLevel() {
         Instant now = Instant.now();
         levelStatistics.meters.put(
-                MeterNames.TOTAL_TIME,
+                MeterNames.DISCOVERY_TIME,
                 Duration.between(currentLevelStart, now).getSeconds());
+        discoveryTimer.record(
+                Duration.between(currentLevelStart, now).getSeconds(),
+                TimeUnit.SECONDS);
     }
 
 
@@ -199,16 +215,22 @@ public class Discovery {
      * Filter out already explored (visited or waiting to be visited) nodes.
      * So we do not visit the same state multiple times.
      */
-    private void filterNewNodes(Node node) {
-        List<Node> filtered = node.getNext().stream()
-                .filter(filter::isNewNode)
-                .collect(Collectors.toList());
-        node.setNext(filtered);
+    private void filterNewNodes(Node node) throws DiscoveryException {
+        List<Node> newNext = new ArrayList<>();
+        for (Node nextNode : node.getNext()) {
+            if (!filter.isNewNode(nextNode)) {
+                continue;
+            }
+            newNext.add(nextNode);
+        }
+        node.setNext(newNext);
     }
 
-    private void addNewNodes(List<Node> newNodes) {
+    private void addNewNodes(List<Node> newNodes) throws DiscoveryException {
         queue.addAll(newNodes);
-        newNodes.forEach(filter::addNode);
+        for (Node node : newNodes) {
+            filter.addNode(node);
+        }
     }
 
     public String getIri() {
@@ -229,6 +251,14 @@ public class Discovery {
 
     public DiscoveryStatistics getStatistics() {
         return statistics;
+    }
+
+    public NodeFacade getNodeFacade() {
+        return nodeFacade;
+    }
+
+    public void cleanUp() throws DiscoveryException {
+        nodeFacade.cleanUp();
     }
 
 }

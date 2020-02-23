@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -96,7 +98,8 @@ public class AppEntry {
         }
         MeterRegistry registry = createMeterRegistry();
         Instant start = Instant.now();
-        runDiscovery(builder, limit, registry, output);
+        runDiscovery(
+                builder, limit, registry, output, new File(output, "working"));
         logMeterRegistry(registry);
         LOG.info("All done in: {} min",
                 Duration.between(start, Instant.now()).toMinutes());
@@ -177,19 +180,31 @@ public class AppEntry {
 
     static List<DiscoveryStatisticsInPath> runDiscovery(
             DiscoveryBuilder builder, int limit,
-            MeterRegistry registry, File outputRoot)
-            throws Exception {
+            MeterRegistry registry, File outputDirectory,
+            File workingDirectory) throws Exception {
+        outputDirectory.mkdirs();
+        workingDirectory.mkdirs();
+        //
         List<DiscoveryStatisticsInPath> statistics = new ArrayList<>();
-        for (Discovery discovery : builder.create(registry)) {
+        Map<String, String> discoveryNames = new HashMap<>();
+        DiscoveryBuilder.DirectorySource source = (iri) -> {
+            String name = "discovery_"
+                    + String.format("%03d", discoveryNames.size());
+            discoveryNames.put(iri, name);
+            return new File(outputDirectory, name);
+        };
+        for (Discovery discovery : builder.create(registry, source)) {
             Node root = discovery.explore(limit);
             DiscoveryStatistics stats = discovery.getStatistics();
-            String outputName = "discovery_"
-                    + String.format("%03d", statistics.size());
-            File output = new File(outputRoot, outputName);
+            String name = discoveryNames.get(discovery.getIri());
+            File output = new File(outputDirectory, name);
             export(discovery, root, output);
-            statistics.add(new DiscoveryStatisticsInPath(stats, outputName));
+            statistics.add(new DiscoveryStatisticsInPath(stats, name));
+            discovery.cleanUp();
+            // Print statistics during the execution.
+            AppEntry.logMeterRegistry(registry);
         }
-        SummaryExport.export(statistics, outputRoot);
+        SummaryExport.export(statistics, outputDirectory);
         return statistics;
     }
 
@@ -205,11 +220,15 @@ public class AppEntry {
                 discovery, root, new File(output, "pipelines.json"),
                 nodeToName);
         DataSamplesExport.export(
-                root, nodeToName, new File(output, "data-samples"));
+                root, nodeToName,
+                discovery.getNodeFacade(),
+                new File(output, "data-samples"));
     }
 
     static void logMeterRegistry(MeterRegistry registry) {
         String message = "Runtime statistics:" + System.lineSeparator()
+                + "    total time       :  %8d s" + System.lineSeparator()
+                + "    file system IO   :  %8d s" + System.lineSeparator()
                 + "    repository create:  %8d s" + System.lineSeparator()
                 + "    repository update:  %8d s" + System.lineSeparator()
                 + "    repository ask:     %8d s" + System.lineSeparator()
@@ -217,6 +236,10 @@ public class AppEntry {
                 + "    filter.diff.create: %8d s" + System.lineSeparator()
                 + "    filter.diff.match:  %8d s" + System.lineSeparator();
         LOG.info(String.format(message,
+                (int) registry.timer(MeterNames.DISCOVERY_TIME)
+                        .totalTime(TimeUnit.SECONDS),
+                (int) registry.timer(MeterNames.DATA_SAMPLE_STORAGE)
+                        .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.CREATE_REPOSITORY)
                         .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.UPDATE_DATA)

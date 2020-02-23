@@ -1,5 +1,6 @@
 package com.linkedpipes.discovery.node;
 
+import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Descriptor;
@@ -15,6 +16,8 @@ import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +31,8 @@ public class ExpandNode {
 
     private final List<Transformer> transformers;
 
+    private final NodeFacade nodeFacade;
+
     private final Timer createRepositoryTimer;
 
     private final Timer transformDataTimer;
@@ -37,9 +42,11 @@ public class ExpandNode {
     public ExpandNode(
             List<Application> applications,
             List<Transformer> transformers,
+            NodeFacade nodeFacade,
             MeterRegistry registry) {
         this.applications = applications;
         this.transformers = transformers;
+        this.nodeFacade = nodeFacade;
         //
         this.createRepositoryTimer =
                 registry.timer(MeterNames.CREATE_REPOSITORY);
@@ -49,7 +56,7 @@ public class ExpandNode {
                 registry.timer(MeterNames.MATCH_DATA);
     }
 
-    public void expand(Node node) {
+    public void expand(Node node) throws DiscoveryException {
         Repository repository = createRepository(node);
         try {
             node.setApplications(findApplications(repository));
@@ -59,15 +66,19 @@ public class ExpandNode {
         }
     }
 
-    private Repository createRepository(Node pipeline) {
-        return createRepositoryTimer.record(() -> {
-            Repository result = new SailRepository(new MemoryStore());
-            result.init();
-            try (RepositoryConnection connection = result.getConnection()) {
-                connection.add(pipeline.getDataSample());
-            }
-            return result;
-        });
+    private Repository createRepository(Node node) {
+        Instant start = Instant.now();
+        Repository result = new SailRepository(new MemoryStore());
+        result.init();
+        try (RepositoryConnection connection = result.getConnection()) {
+            connection.add(nodeFacade.getDataSample(node));
+        } catch (DiscoveryException ex) {
+            throw new RuntimeException("Can't create repository.", ex);
+        } finally {
+            createRepositoryTimer.record(
+                    Duration.between(start, Instant.now()));
+        }
+        return result;
     }
 
     private List<Application> findApplications(Repository repository) {
@@ -95,14 +106,15 @@ public class ExpandNode {
         });
     }
 
-    private List<Node> findNextNodes(Node node, Repository repository) {
+    private List<Node> findNextNodes(Node node, Repository repository)
+            throws DiscoveryException {
         List<Node> result = new ArrayList<>();
         for (Transformer transformer : transformers) {
             if (!match(repository, transformer.features)) {
                 continue;
             }
             List<Statement> newSample = transformData(node, transformer);
-            result.add(new Node(node, transformer, newSample));
+            result.add(nodeFacade.createNode(node, transformer, newSample));
         }
         return result;
     }

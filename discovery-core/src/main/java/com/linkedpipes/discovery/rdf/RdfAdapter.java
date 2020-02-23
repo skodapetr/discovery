@@ -9,8 +9,10 @@ import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -65,6 +67,17 @@ public final class RdfAdapter {
             parser.parse(stream, url.toString());
         }
         return result;
+    }
+
+    public static void toFile(List<Statement> statements, File file)
+            throws IOException {
+        RDFFormat format =
+                Rio.getParserFormatForFileName(file.getName())
+                        .orElse(RDFFormat.N3);
+        file.getParentFile().mkdirs();
+        try (OutputStream stream = new FileOutputStream(file)) {
+            Rio.write(statements, stream, format);
+        }
     }
 
 }
