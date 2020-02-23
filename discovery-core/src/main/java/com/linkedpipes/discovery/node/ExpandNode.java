@@ -67,12 +67,19 @@ public class ExpandNode {
     }
 
     private Repository createRepository(Node node) {
+        // We do this here to not count time of getting the data.
+        List<Statement> dataSample;
+        try {
+            dataSample = nodeFacade.getDataSample(node);
+        } catch (DiscoveryException ex) {
+            throw new RuntimeException("Can't create repository.", ex);
+        }
         Instant start = Instant.now();
         Repository result = new SailRepository(new MemoryStore());
         result.init();
         try (RepositoryConnection connection = result.getConnection()) {
-            connection.add(nodeFacade.getDataSample(node));
-        } catch (DiscoveryException ex) {
+            connection.add(dataSample);
+        } catch (RuntimeException ex) {
             throw new RuntimeException("Can't create repository.", ex);
         } finally {
             createRepositoryTimer.record(
