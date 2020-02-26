@@ -7,6 +7,7 @@ import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,20 +28,19 @@ public class TextExpandNode {
         List<Application> applications = Arrays.asList(
                 ModelAdapter.loadApplication(TestResources.asStatements(
                         "pipeline/application/dcterms.ttl")));
-
+        SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
                 applications, Collections.emptyList(),
-                NodeFacade.withMemoryStorage(),
-                memoryRegistry);
+                sampleStore, memoryRegistry);
 
-        List<Dataset> datasets = Arrays.asList(
-                ModelAdapter.loadDataset(
-                        "http://nkod",
-                        "NKOD",
-                        TestResources.file(
-                                "pipeline/dataset/nkod-dcterms")));
+        Dataset dataset = ModelAdapter.loadDataset(
+                "http://nkod",
+                "NKOD",
+                TestResources.file("pipeline/dataset/nkod-dcterms"));
 
-        Node node = new Node(datasets);
+        Node node = new Node(
+                Collections.singletonList(dataset),
+                sampleStore.store(dataset.sample, "root"));
         expander.expand(node);
 
         Assertions.assertEquals(0, node.getNext().size());
@@ -65,19 +65,22 @@ public class TextExpandNode {
                         "pipeline/transformer/"
                                 + "dcterms-issued-to-dcterms-date.ttl")));
 
+        SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
                 applications, transformers,
-                NodeFacade.withMemoryStorage(),
+                sampleStore,
                 memoryRegistry);
 
-        List<Dataset> datasets = Arrays.asList(
-                ModelAdapter.loadDataset(
-                        "http://nkod",
-                        "NKOD",
-                        TestResources.file(
-                                "pipeline/dataset/nkod-dcterms")));
-        Node root = new Node(datasets);
+        Dataset dataset = ModelAdapter.loadDataset(
+                "http://nkod",
+                "NKOD",
+                TestResources.file("pipeline/dataset/nkod-dcterms"));
+
+        Node root = new Node(
+                Collections.singletonList(dataset),
+                sampleStore.store(dataset.sample, "root"));
         expander.expand(root);
+
         Assertions.assertEquals(1, root.getNext().size());
         Assertions.assertEquals(1, root.getApplications().size());
 

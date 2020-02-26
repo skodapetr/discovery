@@ -3,11 +3,14 @@ package com.linkedpipes.discovery.filter;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.node.NodeFacade;
+import com.linkedpipes.discovery.sample.SampleRef;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.util.Models;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -24,19 +27,19 @@ import java.util.List;
  *
  * <p>Times for http---data.open.ac.uk-query
  */
-public class Rdf4jIsomorphic implements FilterStrategy {
+public class Rdf4jIsomorphic implements NodeFilter {
 
-    /**
-     * Store data sample by size.
-     */
-    private List<List<Statement>> samples = null;
+    private static final Logger LOG =
+            LoggerFactory.getLogger(Rdf4jIsomorphic.class);
 
-    private final NodeFacade nodeFacade;
+    private List<SampleRef> samples = null;
+
+    private final SampleStore sampleStore;
 
     private final Timer timer;
 
-    public Rdf4jIsomorphic(NodeFacade nodeFacade, MeterRegistry registry) {
-        this.nodeFacade = nodeFacade;
+    public Rdf4jIsomorphic(SampleStore sampleStore, MeterRegistry registry) {
+        this.sampleStore = sampleStore;
         this.timer = registry.timer(MeterNames.FILTER_ISOMORPHIC);
     }
 
@@ -46,16 +49,18 @@ public class Rdf4jIsomorphic implements FilterStrategy {
     }
 
     @Override
-    public void addNode(Node node) throws DiscoveryException {
-        samples.add(nodeFacade.getDataSample(node));
+    public void addNode(Node node) {
+        sampleStore.addReferenceUser(node.getDataSampleRef());
     }
 
     @Override
     public boolean isNewNode(Node node) throws DiscoveryException {
         Instant start = Instant.now();
         try {
-            List<Statement> nodeSample = nodeFacade.getDataSample(node);
-            for (List<Statement> visitedSample : samples) {
+            List<Statement> nodeSample =
+                    sampleStore.load(node.getDataSampleRef());
+            for (SampleRef visitedRef : samples) {
+                List<Statement> visitedSample = sampleStore.load(visitedRef);
                 if (Models.isomorphic(nodeSample, visitedSample)) {
                     return false;
                 }
@@ -64,6 +69,11 @@ public class Rdf4jIsomorphic implements FilterStrategy {
         } finally {
             timer.record(Duration.between(start, Instant.now()));
         }
+    }
+
+    @Override
+    public void logAfterLevelFinished() {
+        LOG.info("Number of data samples: {}", samples.size());
     }
 
 }

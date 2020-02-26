@@ -1,12 +1,13 @@
 package com.linkedpipes.discovery;
 
-import com.linkedpipes.discovery.filter.FilterStrategy;
+import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.node.ExpandNode;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.node.NodeFacade;
+import com.linkedpipes.discovery.sample.SampleRef;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -38,7 +39,7 @@ public class Discovery {
 
     private final List<Application> applications;
 
-    private final FilterStrategy filter;
+    private final NodeFilter filter;
 
     /**
      * Nodes to visit.
@@ -54,7 +55,7 @@ public class Discovery {
 
     private Instant currentLevelStart;
 
-    private NodeFacade nodeFacade;
+    private SampleStore sampleStore;
 
     private final Timer discoveryTimer;
 
@@ -63,16 +64,16 @@ public class Discovery {
             Dataset dataset,
             List<Transformer> transformers,
             List<Application> applications,
-            FilterStrategy filter,
-            NodeFacade nodeFacade,
+            NodeFilter filter,
+            SampleStore sampleStore,
             MeterRegistry registry) {
         this.iri = iri;
         this.dataset = dataset;
         this.transformers = transformers;
         this.applications = applications;
-        this.nodeFacade = nodeFacade;
+        this.sampleStore = sampleStore;
         this.expander = new ExpandNode(
-                applications, transformers, nodeFacade, registry);
+                applications, transformers, sampleStore, registry);
         this.filter = filter;
         //
         this.discoveryTimer =
@@ -87,9 +88,7 @@ public class Discovery {
         Runtime.getRuntime().gc();
         //
         LOG.info("Running exploration for: {}", dataset.iri);
-        LOG.info(
-                "data sample: {} applications: {} transformers: {} "
-                        + "memory: {} MB",
+        LOG.info("data sample size: {} apps: {} transformers: {} memory: {} MB",
                 dataset.sample.size(), applications.size(),
                 transformers.size(), usedMemoryInMb());
         initializeStatistics();
@@ -103,15 +102,17 @@ public class Discovery {
                 break;
             }
             Node next = queue.pop();
-            // TODO If we need to remember all nodes, here is the place.
             expander.expand(next);
             addApplicationsAndTransformersOfExpandedNodeToStatistics(next);
             levelStatistics.generated += next.getNext().size();
             filterNewNodes(next);
             levelStatistics.size += next.getNext().size();
             addNewNodes(next.getNext());
+            // We do not need the node sample any more in main memory.
+            sampleStore.releaseFromMemory(next.getDataSampleRef());
         }
         finalizeStatisticsForCurrentLevel();
+        LOG.info("Discovery process finished.");
         logCurrentLevelInfo();
         return root;
     }
@@ -132,7 +133,8 @@ public class Discovery {
     }
 
     private Node createRoot() throws DiscoveryException {
-        return nodeFacade.createNode(Collections.singletonList(dataset));
+        SampleRef ref = sampleStore.store(dataset.sample, "root");
+        return new Node(Collections.singletonList(dataset), ref);
     }
 
     private void initializeExploration(Node root) throws DiscoveryException {
@@ -151,7 +153,10 @@ public class Discovery {
     private void onNextLevelStart() {
         finalizeStatisticsForCurrentLevel();
         currentLevelStart = Instant.now();
+        // Log some more statistic.
         logCurrentLevelInfo();
+        sampleStore.logAfterLevelFinished();
+        filter.logAfterLevelFinished();
         // Add new level of statistics.
         int levelIndex = levelStatistics.level + 1;
         levelStatistics = new DiscoveryStatistics.Level();
@@ -253,12 +258,12 @@ public class Discovery {
         return statistics;
     }
 
-    public NodeFacade getNodeFacade() {
-        return nodeFacade;
+    public SampleStore getSampleStore() {
+        return sampleStore;
     }
 
-    public void cleanUp() throws DiscoveryException {
-        nodeFacade.cleanUp();
+    public void cleanUp() {
+        sampleStore.cleanUp();
     }
 
 }

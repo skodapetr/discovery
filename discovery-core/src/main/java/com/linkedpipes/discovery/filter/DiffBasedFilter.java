@@ -4,15 +4,19 @@ import com.google.common.collect.Sets;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.node.NodeFacade;
+import com.linkedpipes.discovery.sample.SampleRef;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.util.Models;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,32 +44,29 @@ import java.util.Set;
  * - filter.diff.create total: 1 s
  * - filter.diff.compare total: 134 s
  */
-public class DiffBasedFilter implements FilterStrategy {
+public class DiffBasedFilter implements NodeFilter {
 
-    private static class NodeDiff {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DiffBasedFilter.class);
 
-        private final Set<Statement> diff;
-
-        public NodeDiff(Set<Statement> diff) {
-            this.diff = diff;
-        }
-    }
-
+    /**
+     * We keep the root sample in main memory as we use it very often.
+     */
     private Set<Statement> rootSample;
 
     /**
      * Store NodeDiffs in lists by size.
      */
-    private final Map<Integer, List<NodeDiff>> nodesBySize = new HashMap<>();
+    private final Map<Integer, List<SampleRef>> nodesBySize = new HashMap<>();
 
-    private final NodeFacade nodeFacade;
+    private final SampleStore sampleStore;
 
     private final Timer createDiffNodeTimer;
 
     private final Timer compareDiffNodesTimer;
 
-    public DiffBasedFilter(NodeFacade nodeFacade, MeterRegistry registry) {
-        this.nodeFacade = nodeFacade;
+    public DiffBasedFilter(SampleStore sampleStore, MeterRegistry registry) {
+        this.sampleStore = sampleStore;
         this.createDiffNodeTimer =
                 registry.timer(MeterNames.FILTER_DIFF_CREATE);
         this.compareDiffNodesTimer =
@@ -74,27 +75,28 @@ public class DiffBasedFilter implements FilterStrategy {
 
     @Override
     public void init(Node root) throws DiscoveryException {
-        this.rootSample = new HashSet<>(nodeFacade.getDataSample(root));
+        this.rootSample =
+                new HashSet<>(sampleStore.load(root.getDataSampleRef()));
         this.nodesBySize.clear();
     }
 
     @Override
     public void addNode(Node node) throws DiscoveryException {
-        NodeDiff nodeDiff = createNodeDiff(node);
-        Integer size = nodeDiff.diff.size();
+        Set<Statement> diff = createNodeDiff(node);
+        Integer size = diff.size();
         if (!nodesBySize.containsKey(size)) {
             nodesBySize.put(size, new ArrayList<>());
         }
-        nodesBySize.get(size).add(nodeDiff);
+        SampleRef ref = sampleStore.store(new ArrayList<>(diff), "filter-diff");
+        nodesBySize.get(size).add(ref);
     }
 
-    private NodeDiff createNodeDiff(Node node) throws DiscoveryException {
+    private Set<Statement> createNodeDiff(Node node) throws DiscoveryException {
         Instant start = Instant.now();
         try {
             Set<Statement> nodeSample =
-                    new HashSet<>(nodeFacade.getDataSample(node));
-            Set<Statement> diff = Sets.difference(rootSample, nodeSample);
-            return new NodeDiff(diff);
+                    new HashSet<>(sampleStore.load(node.getDataSampleRef()));
+            return Sets.difference(rootSample, nodeSample);
         } finally {
             createDiffNodeTimer.record(Duration.between(start, Instant.now()));
         }
@@ -102,12 +104,11 @@ public class DiffBasedFilter implements FilterStrategy {
 
     @Override
     public boolean isNewNode(Node node) throws DiscoveryException {
+        Set<Statement> diff = createNodeDiff(node);
         Instant start = Instant.now();
         try {
-            NodeDiff nodeDiff = createNodeDiff(node);
-            Integer size = nodeDiff.diff.size();
-            for (NodeDiff visited : getForSize(size)) {
-                if (match(visited, nodeDiff)) {
+            for (SampleRef visitedRef : getForSize(diff.size())) {
+                if (match(diff, sampleStore.load(visitedRef))) {
                     return false;
                 }
             }
@@ -118,12 +119,26 @@ public class DiffBasedFilter implements FilterStrategy {
         }
     }
 
-    private List<NodeDiff> getForSize(Integer size) {
+    private List<SampleRef> getForSize(Integer size) {
         return nodesBySize.getOrDefault(size, Collections.emptyList());
     }
 
-    private boolean match(NodeDiff left, NodeDiff right) {
-        return Models.isomorphic(left.diff, right.diff);
+    private boolean match(
+            Collection<Statement> left, Collection<Statement> right) {
+        return Models.isomorphic(left, right);
+    }
+
+    @Override
+    public void logAfterLevelFinished() {
+        StringBuilder message = new StringBuilder(
+                "For given size number of data samples:");
+        for (var entry : nodesBySize.entrySet()) {
+            message.append("\n    ")
+                    .append(entry.getKey())
+                    .append(" : ")
+                    .append(entry.getValue().size());
+        }
+        LOG.info(message.toString());
     }
 
 }

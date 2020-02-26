@@ -2,8 +2,7 @@ package com.linkedpipes.discovery.cli.export;
 
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.node.NodeFacade;
-import org.eclipse.rdf4j.model.Statement;
+import com.linkedpipes.discovery.sample.SampleStore;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.Rio;
@@ -20,21 +19,21 @@ public class DataSamplesExport {
             LoggerFactory.getLogger(DataSamplesExport.class);
 
     public static void export(
-            Node root, NodeToName nodeToName, NodeFacade nodeFacade,
+            Node root, NodeToName nodeToName, SampleStore sampleStore,
             File directory) {
         directory.mkdirs();
         root.accept((node) -> {
             File output = new File(directory, nodeToName.name(node) + ".ttl");
-            saveDataSample(node, nodeFacade, output);
+            saveDataSample(node, sampleStore, output);
         });
     }
 
     private static void saveDataSample(
-            Node node, NodeFacade nodeFacade, File file) {
+            Node node, SampleStore sampleStore, File file) {
         try (var stream = new FileOutputStream(file)) {
             RDFWriter writer = Rio.createWriter(RDFFormat.TURTLE, stream);
             writer.startRDF();
-            for (Statement statement : nodeFacade.getDataSample(node)) {
+            for (var statement : sampleStore.load(node.getDataSampleRef())) {
                 writer.handleStatement(statement);
             }
             writer.endRDF();

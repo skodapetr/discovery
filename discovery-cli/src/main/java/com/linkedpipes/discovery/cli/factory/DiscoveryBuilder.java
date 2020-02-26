@@ -2,15 +2,15 @@ package com.linkedpipes.discovery.cli.factory;
 
 import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.filter.DiffBasedFilter;
-import com.linkedpipes.discovery.filter.FilterStrategy;
+import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.filter.NoFilter;
 import com.linkedpipes.discovery.filter.Rdf4jIsomorphic;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
-import com.linkedpipes.discovery.node.NodeFacade;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 public abstract class DiscoveryBuilder {
 
@@ -28,18 +29,13 @@ public abstract class DiscoveryBuilder {
 
     private static final String DEFAULT_FILTER_STRATEGY = "diff";
 
-    @FunctionalInterface
-    public interface DirectorySource {
-
-        File get(String discoveryIri);
-
-    }
-
-    private String filterStrategyName = DEFAULT_FILTER_STRATEGY;
+    private String filterStrategy = DEFAULT_FILTER_STRATEGY;
 
     protected List<Transformer> transformers = new ArrayList<>();
 
     protected List<Application> applications = new ArrayList<>();
+
+    protected Function<String, SampleStore> storeFactory = null;
 
     public void addApplications(File directory) throws IOException {
         Files.walk(directory.toPath())
@@ -67,17 +63,21 @@ public abstract class DiscoveryBuilder {
                 });
     }
 
-    public void setFilterStrategy(String name) {
-        filterStrategyName = name;
+    public void setFilterStrategy(String filterStrategyName) {
+        this.filterStrategy = filterStrategyName;
     }
 
-    protected FilterStrategy getFilterStrategy(
-            NodeFacade nodeFacade, MeterRegistry meterRegistry) {
-        switch (filterStrategyName) {
+    public void setStoreFactory(Function<String, SampleStore> storeFactory) {
+        this.storeFactory = storeFactory;
+    }
+
+    protected NodeFilter createFilterStrategy(
+            SampleStore sampleStore, MeterRegistry meterRegistry) {
+        switch (filterStrategy) {
             case "diff":
-                return new DiffBasedFilter(nodeFacade, meterRegistry);
+                return new DiffBasedFilter(sampleStore, meterRegistry);
             case "isomorphic":
-                return new Rdf4jIsomorphic(nodeFacade, meterRegistry);
+                return new Rdf4jIsomorphic(sampleStore, meterRegistry);
             case "no-filter":
                 return new NoFilter();
             default:
@@ -85,8 +85,7 @@ public abstract class DiscoveryBuilder {
         }
     }
 
-    public abstract List<Discovery> create(
-            MeterRegistry registry, DirectorySource directorySource)
+    public abstract List<Discovery> create(MeterRegistry registry)
             throws Exception;
 
 }

@@ -14,10 +14,8 @@ import com.linkedpipes.discovery.cli.export.GephiExport;
 import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
 import com.linkedpipes.discovery.node.Node;
 import com.linkedpipes.discovery.DiscoveryStatistics;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
-import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
-import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -98,8 +96,7 @@ public class AppEntry {
         }
         MeterRegistry registry = createMeterRegistry();
         Instant start = Instant.now();
-        runDiscovery(
-                builder, limit, registry, output, new File(output, "working"));
+        runDiscovery(builder, limit, registry, output);
         logMeterRegistry(registry);
         LOG.info("All done in: {} min",
                 Duration.between(start, Instant.now()).toMinutes());
@@ -170,30 +167,25 @@ public class AppEntry {
     }
 
     static MeterRegistry createMeterRegistry() {
-        SimpleMeterRegistry memoryRegistry = new SimpleMeterRegistry();
-        CompositeMeterRegistry registry = new CompositeMeterRegistry();
-        registry.add(memoryRegistry);
-        new JvmMemoryMetrics().bindTo(registry);
-        new JvmGcMetrics().bindTo(registry);
-        return registry;
+        return new SimpleMeterRegistry();
     }
 
     static List<DiscoveryStatisticsInPath> runDiscovery(
             DiscoveryBuilder builder, int limit,
-            MeterRegistry registry, File outputDirectory,
-            File workingDirectory) throws Exception {
-        outputDirectory.mkdirs();
-        workingDirectory.mkdirs();
+            MeterRegistry registry, File outputDirectory) throws Exception {
         //
         List<DiscoveryStatisticsInPath> statistics = new ArrayList<>();
         Map<String, String> discoveryNames = new HashMap<>();
-        DiscoveryBuilder.DirectorySource source = (iri) -> {
+        builder.setStoreFactory((iri) -> {
             String name = "discovery_"
                     + String.format("%03d", discoveryNames.size());
             discoveryNames.put(iri, name);
-            return new File(outputDirectory, name);
-        };
-        for (Discovery discovery : builder.create(registry, source)) {
+            // return SampleStore.memoryStore();
+            return SampleStore.fileSystemStore(
+                    new File(outputDirectory, name + "/working/sample-store"),
+                    registry);
+        });
+        for (Discovery discovery : builder.create(registry)) {
             Node root = discovery.explore(limit);
             DiscoveryStatistics stats = discovery.getStatistics();
             String name = discoveryNames.get(discovery.getIri());
@@ -203,6 +195,7 @@ public class AppEntry {
             discovery.cleanUp();
             // Print statistics during the execution.
             AppEntry.logMeterRegistry(registry);
+            // TODO Optically delete the working directory here.
         }
         SummaryExport.export(statistics, outputDirectory);
         return statistics;
@@ -221,8 +214,8 @@ public class AppEntry {
                 nodeToName);
         DataSamplesExport.export(
                 root, nodeToName,
-                discovery.getNodeFacade(),
-                new File(output, "data-samples"));
+                discovery.getSampleStore(),
+                new File(output, "node-data-samples"));
     }
 
     static void logMeterRegistry(MeterRegistry registry) {

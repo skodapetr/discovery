@@ -3,7 +3,7 @@ package com.linkedpipes.discovery.filter;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.node.Node;
 
-public interface FilterStrategy {
+public interface NodeFilter {
 
     default void init(Node root) throws DiscoveryException {
         // No action.
@@ -14,5 +14,9 @@ public interface FilterStrategy {
     }
 
     boolean isNewNode(Node node) throws DiscoveryException;
+
+    default void logAfterLevelFinished() {
+        // No operation.
+    }
 
 }

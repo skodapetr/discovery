@@ -1,14 +1,14 @@
 package com.linkedpipes.discovery.cli.factory;
 
 import com.linkedpipes.discovery.Discovery;
-import com.linkedpipes.discovery.filter.FilterStrategy;
+import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
-import com.linkedpipes.discovery.node.NodeFacade;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -61,14 +61,12 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private File report = null;
 
-    public FromDiscoveryUrl(String url) {
-        this.discoveryUrl = url;
+    public FromDiscoveryUrl(String discoveryUrl) {
+        this.discoveryUrl = discoveryUrl;
     }
 
     @Override
-    public List<Discovery> create(
-            MeterRegistry registry, DirectorySource directorySource)
-            throws Exception {
+    public List<Discovery> create(MeterRegistry registry) throws Exception {
         LOG.info("Collecting templates for: {}", discoveryUrl);
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
@@ -83,9 +81,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         List<Discovery> result = new ArrayList<>();
         for (int index = 0; index < datasets.size(); ++index) {
             String iri = discoveryUrl + "/" + index;
-            result.add(createDiscovery(
-                    iri, datasets.get(index),
-                    registry, directorySource.get(iri)));
+            result.add(createDiscovery(iri, datasets.get(index), registry));
         }
         return result;
     }
@@ -227,14 +223,13 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private Discovery createDiscovery(
             String iri, Dataset dataset,
-            MeterRegistry registry, File directory) {
-        NodeFacade nodeFacade = NodeFacade.withFileSystemStorage(
-                new File(directory, "node-service"), registry);
-        FilterStrategy filterStrategy = getFilterStrategy(
-                nodeFacade, registry);
+            MeterRegistry registry) {
+        SampleStore sampleStore = storeFactory.apply(iri);
+        NodeFilter filterStrategy =
+                createFilterStrategy(sampleStore, registry);
         return new Discovery(
                 iri, dataset, transformers, applications,
-                filterStrategy, nodeFacade, registry);
+                filterStrategy, sampleStore, registry);
     }
 
 }

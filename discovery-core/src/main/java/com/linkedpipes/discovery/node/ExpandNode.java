@@ -6,6 +6,8 @@ import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Descriptor;
 import com.linkedpipes.discovery.model.Feature;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.sample.SampleRef;
+import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
@@ -31,7 +33,7 @@ public class ExpandNode {
 
     private final List<Transformer> transformers;
 
-    private final NodeFacade nodeFacade;
+    private final SampleStore statementsStore;
 
     private final Timer createRepositoryTimer;
 
@@ -42,11 +44,11 @@ public class ExpandNode {
     public ExpandNode(
             List<Application> applications,
             List<Transformer> transformers,
-            NodeFacade nodeFacade,
+            SampleStore statementsStore,
             MeterRegistry registry) {
         this.applications = applications;
         this.transformers = transformers;
-        this.nodeFacade = nodeFacade;
+        this.statementsStore = statementsStore;
         //
         this.createRepositoryTimer =
                 registry.timer(MeterNames.CREATE_REPOSITORY);
@@ -67,14 +69,13 @@ public class ExpandNode {
     }
 
     private Repository createRepository(Node node) {
-        // We do this here to not count time of getting the data.
+        Instant start = Instant.now();
         List<Statement> dataSample;
         try {
-            dataSample = nodeFacade.getDataSample(node);
+            dataSample = statementsStore.load(node.getDataSampleRef());
         } catch (DiscoveryException ex) {
-            throw new RuntimeException("Can't create repository.", ex);
+            throw new RuntimeException("Can't load data sample.", ex);
         }
-        Instant start = Instant.now();
         Repository result = new SailRepository(new MemoryStore());
         result.init();
         try (RepositoryConnection connection = result.getConnection()) {
@@ -121,7 +122,8 @@ public class ExpandNode {
                 continue;
             }
             List<Statement> newSample = transformData(node, transformer);
-            result.add(nodeFacade.createNode(node, transformer, newSample));
+            SampleRef ref = statementsStore.store(newSample, "data-sample");
+            result.add(new Node(node, transformer, ref));
         }
         return result;
     }
@@ -130,13 +132,13 @@ public class ExpandNode {
             Node node, Transformer transformer) {
         Repository repository = createRepository(node);
         return transformDataTimer.record(() -> {
-            try (RepositoryConnection connection = repository.getConnection()) {
+            try (var connection = repository.getConnection()) {
                 Update query = connection.prepareUpdate(
                         transformer.configurationTemplate.query);
                 query.execute();
-                RepositoryResult<Statement> content =
-                        connection.getStatements(null, null, null);
-                return resultToList(content);
+                return resultToList(connection.getStatements(null, null, null));
+            } finally {
+                repository.shutDown();
             }
         });
     }

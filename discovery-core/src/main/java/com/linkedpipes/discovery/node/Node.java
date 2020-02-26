@@ -3,6 +3,7 @@ package com.linkedpipes.discovery.node;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.sample.SampleRef;
 
 import java.util.Collections;
 import java.util.List;
@@ -30,20 +31,26 @@ public class Node {
 
     private final int level;
 
-    Node(List<Dataset> sources) {
+    private final SampleRef dataSampleRef;
+
+    public Node(List<Dataset> sources, SampleRef dataSampleRef) {
         this.sources = sources;
         this.transformer = null;
         this.applications = Collections.emptyList();
         this.previous = null;
         this.level = 0;
+        this.dataSampleRef = dataSampleRef;
     }
 
-    Node(Node previous, Transformer transformer) {
+    public Node(
+            Node previous, Transformer transformer,
+            SampleRef dataSampleRef) {
         this.sources = previous.sources;
         this.transformer = transformer;
         this.applications = Collections.emptyList();
         this.previous = previous;
         this.level = previous.level + 1;
+        this.dataSampleRef = dataSampleRef;
     }
 
     public List<Dataset> getSources() {
@@ -80,6 +87,10 @@ public class Node {
 
     public int getLevel() {
         return level;
+    }
+
+    public SampleRef getDataSampleRef() {
+        return dataSampleRef;
     }
 
     public void accept(NodeVisitor visitor) {
