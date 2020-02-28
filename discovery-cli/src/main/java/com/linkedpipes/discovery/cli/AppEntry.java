@@ -246,9 +246,9 @@ public class AppEntry {
                 (int) registry.timer(MeterNames.FILTER_DIFF_CREATE)
                         .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.FILTER_DIFF_FILTER)
-                        .totalTime(TimeUnit.SECONDS)),
+                        .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.STORE_MAP_MEMORY)
-                        .totalTime(TimeUnit.SECONDS));
+                        .totalTime(TimeUnit.SECONDS)));
     }
 
 }
