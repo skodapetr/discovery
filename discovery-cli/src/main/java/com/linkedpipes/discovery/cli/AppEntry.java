@@ -180,10 +180,11 @@ public class AppEntry {
             String name = "discovery_"
                     + String.format("%03d", discoveryNames.size());
             discoveryNames.put(iri, name);
-            // return SampleStore.memoryStore();
-            return SampleStore.fileSystemStore(
-                    new File(outputDirectory, name + "/working/sample-store"),
-                    registry);
+            //return SampleStore.memoryStore();
+            //return SampleStore.fileSystemStore(
+            //        new File(outputDirectory, name + "/working/sample-store"),
+            //        registry);
+            return SampleStore.memoryMapStore(registry);
         });
         for (Discovery discovery : builder.create(registry)) {
             Node root = discovery.explore(limit);
@@ -227,7 +228,8 @@ public class AppEntry {
                 + "    repository ask    :  %8d s" + System.lineSeparator()
                 + "    filter.isomorphic :  %8d s" + System.lineSeparator()
                 + "    filter.diff.create:  %8d s" + System.lineSeparator()
-                + "    filter.diff.match :  %8d s" + System.lineSeparator();
+                + "    filter.diff.match :  %8d s" + System.lineSeparator()
+                + "    store.map         :  %8d s" + System.lineSeparator();
         LOG.info(String.format(message,
                 (int) registry.timer(MeterNames.DISCOVERY_TIME)
                         .totalTime(TimeUnit.SECONDS),
@@ -244,7 +246,9 @@ public class AppEntry {
                 (int) registry.timer(MeterNames.FILTER_DIFF_CREATE)
                         .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.FILTER_DIFF_FILTER)
-                        .totalTime(TimeUnit.SECONDS)));
+                        .totalTime(TimeUnit.SECONDS)),
+                (int) registry.timer(MeterNames.STORE_MAP_MEMORY)
+                        .totalTime(TimeUnit.SECONDS));
     }
 
 }

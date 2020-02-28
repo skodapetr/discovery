@@ -34,6 +34,11 @@ public final class MeterNames {
     public static final String MATCH_DATA = "data.ask";
 
     /**
+     * Time used to map statements in MapMemory store.
+     */
+    public static final String STORE_MAP_MEMORY = "store.map_memory";
+
+    /**
      * TIme used in isomorphic-based filter to compare nodes.
      */
     public static final String FILTER_ISOMORPHIC =

@@ -51,6 +51,10 @@ public interface SampleStore {
         return new MemoryStore();
     }
 
+    static SampleStore memoryMapStore(MeterRegistry registry) {
+        return new MapMemoryStore(registry);
+    }
+
     static SampleStore fileSystemStore(
             File directory, MeterRegistry registry) {
         return new FileStorage(directory, registry);
