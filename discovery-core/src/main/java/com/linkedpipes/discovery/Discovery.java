@@ -88,7 +88,7 @@ public class Discovery {
         Runtime.getRuntime().gc();
         //
         LOG.info("Running exploration for: {}", dataset.iri);
-        LOG.info("data sample size: {} apps: {} transformers: {} memory: {} MB",
+        LOG.info("Data sample size: {} apps: {} transformers: {} memory: {} MB",
                 dataset.sample.size(), applications.size(),
                 transformers.size(), usedMemoryInMb());
         initializeStatistics();
