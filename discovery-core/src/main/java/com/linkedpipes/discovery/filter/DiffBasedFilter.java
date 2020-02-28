@@ -46,6 +46,16 @@ import java.util.Set;
  */
 public class DiffBasedFilter implements NodeFilter {
 
+    private static class UsageReport {
+
+        int used = 0;
+
+        int match = 0;
+
+        long duration = 0;
+
+    }
+
     private static final Logger LOG =
             LoggerFactory.getLogger(DiffBasedFilter.class);
 
@@ -58,6 +68,8 @@ public class DiffBasedFilter implements NodeFilter {
      * Store NodeDiffs in lists by size.
      */
     private final Map<Integer, List<SampleRef>> nodesBySize = new HashMap<>();
+
+    private final Map<Integer, UsageReport> usageReport = new HashMap<>();
 
     private final SampleStore sampleStore;
 
@@ -86,6 +98,7 @@ public class DiffBasedFilter implements NodeFilter {
         Integer size = diff.size();
         if (!nodesBySize.containsKey(size)) {
             nodesBySize.put(size, new ArrayList<>());
+            usageReport.put(size, new UsageReport());
         }
         SampleRef ref = sampleStore.store(new ArrayList<>(diff), "filter-diff");
         nodesBySize.get(size).add(ref);
@@ -106,16 +119,22 @@ public class DiffBasedFilter implements NodeFilter {
     public boolean isNewNode(Node node) throws DiscoveryException {
         Set<Statement> diff = createNodeDiff(node);
         Instant start = Instant.now();
+        UsageReport report = usageReport.get(diff.size());
         try {
             for (SampleRef visitedRef : getForSize(diff.size())) {
                 if (match(diff, sampleStore.load(visitedRef))) {
+                    report.match += 1;
                     return false;
                 }
             }
             return true;
         } finally {
-            compareDiffNodesTimer.record(
-                    Duration.between(start, Instant.now()));
+            Duration duration = Duration.between(start, Instant.now());
+            compareDiffNodesTimer.record(duration);
+            if (report != null) {
+                report.used += 1;
+                report.duration += duration.toMillis();
+            }
         }
     }
 
@@ -132,11 +151,21 @@ public class DiffBasedFilter implements NodeFilter {
     public void logAfterLevelFinished() {
         StringBuilder message = new StringBuilder(
                 "For given size number of data samples:");
-        for (var entry : nodesBySize.entrySet()) {
-            message.append("\n    ")
-                    .append(entry.getKey())
-                    .append(" : ")
-                    .append(entry.getValue().size());
+        List<Integer> sizes = new ArrayList<>(nodesBySize.keySet());
+        Collections.sort(sizes);
+        for (Integer size : sizes) {
+            UsageReport report = usageReport.get(size);
+            message.append("\n    size: ")
+                    .append(size)
+                    .append(" count: ")
+                    .append(nodesBySize.get(size).size())
+                    .append(" used: ")
+                    .append(report.used)
+                    .append(" matched: ")
+                    .append(report.match)
+                    .append(" duration: ")
+                    .append(report.duration)
+                    .append(" ms");
         }
         LOG.info(message.toString());
     }
