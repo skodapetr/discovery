@@ -167,7 +167,7 @@ public class DiffBasedFilter implements NodeFilter {
                     .append(report.duration)
                     .append(" ms");
         }
-        LOG.info(message.toString());
+        LOG.debug(message.toString());
     }
 
 }
