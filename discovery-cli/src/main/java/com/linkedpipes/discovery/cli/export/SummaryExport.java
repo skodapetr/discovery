@@ -1,6 +1,5 @@
 package com.linkedpipes.discovery.cli.export;
 
-import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
 import com.opencsv.CSVWriter;
 
@@ -102,8 +101,7 @@ public class SummaryExport {
                 String[] row = {
                         groupEntry.getKey(),
                         Integer.toString(stats.pipelinesCount()),
-                        Long.toString(
-                                stats.meters.get(MeterNames.DISCOVERY_TIME)),
+                        Long.toString(stats.durationInSeconds()),
                         Integer.toString(stats.applications.size()),
                         Integer.toString(groupEntry.getValue().size()),
                         Integer.toString(stats.transformers.size())

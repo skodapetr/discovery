@@ -27,8 +27,9 @@ public class LangString {
             Literal literal = (Literal) value;
             String language = literal.getLanguage().orElse("");
             add(language, literal.stringValue());
+        } else {
+            LOG.debug("Ignored non-literal value: {}", value);
         }
-        LOG.debug("Ignored non-literal value: {}", value);
     }
 
     public Map<String, String> getValues() {

@@ -2,6 +2,7 @@ package com.linkedpipes.discovery.cli.export;
 
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.node.Node;
+import com.opencsv.CSVWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,6 +10,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -40,13 +42,20 @@ public final class GephiExport {
 
         private List<Boolean> applications;
 
-        public Vertex(String id, int level, List<Boolean> applications) {
+        private boolean redundant;
+
+        public Vertex(
+                String id, int level, List<Boolean> applications,
+                boolean redundant) {
             this.id = id;
             this.level = level;
             this.applications = applications;
+            this.redundant = redundant;
         }
 
     }
+
+    private static String[] EDGE_HEADER = {"source", "target", "transformer"};
 
     public static void export(
             Node root, File edgeFile, File verticesFile,
@@ -66,7 +75,8 @@ public final class GephiExport {
             Vertex vertex = new Vertex(
                     nodeToName.name(node),
                     node.getLevel(),
-                    collectApps(node, applications));
+                    collectApps(node, applications),
+                    node.isRedundant());
             vertexMap.put(node, vertex);
             vertices.add(vertex);
             // Add edge to parent.
@@ -90,13 +100,16 @@ public final class GephiExport {
     private static void writeEdgeFile(List<Edge> edges, File file)
             throws IOException {
         file.getParentFile().mkdirs();
-        try (var writer = new PrintWriter(file, StandardCharsets.UTF_8)) {
-            writer.write("\"source\",\"target\",\"transformer\"\n");
+        try (var printWriter = new PrintWriter(file, StandardCharsets.UTF_8);
+                var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
+            writer.writeNext(EDGE_HEADER);
             for (Edge edge : edges) {
-                writer.write("\""
-                        + edge.source.id + "\",\""
-                        + edge.target.id + "\",\""
-                        + edge.transformer + "\"\n");
+                String[] row = {
+                        edge.source.id,
+                        edge.target.id,
+                        edge.transformer
+                };
+                writer.writeNext(row);
             }
         }
     }
@@ -105,24 +118,27 @@ public final class GephiExport {
             List<Vertex> vertices, File file, List<Application> applications)
             throws IOException {
         file.getParentFile().mkdirs();
-        try (var writer = new PrintWriter(file, StandardCharsets.UTF_8)) {
-            writer.write("\"id\",\"level\"");
-            for (Application application : applications) {
-                writer.write(",\"" + application.title.asString() + "\"");
-            }
-            writer.write("\n");
+        List<String> header = new ArrayList<>();
+        header.addAll(Arrays.asList("id", "level", "redundant"));
+        for (Application application : applications) {
+            header.add(application.title.asString());
+        }
+        //
+        try (var printWriter = new PrintWriter(file, StandardCharsets.UTF_8);
+                var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
+            writer.writeNext(header.toArray(new String[0]));
             for (Vertex vertex : vertices) {
-                writer.write("\"" + vertex.id + "\",\"" + vertex.level + "\"");
+                List<String> row = new ArrayList<>();
+                row.add(vertex.id);
+                row.add(Integer.toString(vertex.level));
+                row.add(vertex.redundant ? "1" : "0");
                 for (Boolean app : vertex.applications) {
-                    if (app) {
-                        writer.write(",\"1\"");
-                    } else {
-                        writer.write(",\"0\"");
-                    }
+                    row.add(app ? "1" : "0");
                 }
-                writer.write("\n");
+                writer.writeNext(row.toArray(new String[0]));
             }
         }
     }
 
 }
+

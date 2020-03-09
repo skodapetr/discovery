@@ -37,6 +37,17 @@ $ java -jar discovery.jar
     run without a limit. 
 - *--IHaveBadDiscoveryDefinition* - Can be used to ignore issues with Discovery 
     definition, can be used only with *-d*/*--discovery* option.
+- *--UseMapping* - Can be used to map results from SPARQL construct. This
+    may reduce memory usage, but require extra CPU to perform the mappings.
+- *-store* - Name of store strategy  used to store statements. Available values:
+    - *memory* - Store all in memory, fastest store using most memory.
+    - *diff* - Store statements in form of diffs from the root. Similar
+        to *diff* filter. 
+    - *disk* - Store all samples into files. Slowest but with smallest memory
+        consumption.
+    - *memory-disk* - Use a memory store for filter data and a disk
+        store for data samples. If 85% of memory is used, then all data are 
+        moved to the disk store and the memory store is no longer used.
 
 [Java]: <http://www.oracle.com/technetwork/java/javase/downloads/index.html>
 [Git]: <https://git-scm.com/>

@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,18 +31,25 @@ class FileStorage implements SampleStore {
      */
     public FileStorage(File directory, MeterRegistry registry) {
         this.directory = directory;
-        this.fileSystemTimer = registry.timer(MeterNames.DATA_SAMPLE_STORAGE);
+        this.fileSystemTimer = registry.timer(MeterNames.FILE_STORE_IO);
         this.directory.mkdirs();
     }
 
     @Override
     public SampleRef store(List<Statement> statements, String name)
             throws DiscoveryException {
-        SampleRef ref = new SampleRef();
+        SampleRef ref = new SampleRef(name);
+        store(statements, ref);
+        return ref;
+    }
+
+    @Override
+    public void store(List<Statement> statements, SampleRef ref)
+            throws DiscoveryException {
         Instant start = Instant.now();
         try {
             File file = Files.createTempFile(
-                    directory.toPath(), name + "-", ".n3").toFile();
+                    directory.toPath(), ref.name + "-", ".n3").toFile();
             RdfAdapter.toFile(statements, file);
             fileStorage.put(ref, file);
         } catch (IOException ex) {
@@ -50,7 +58,6 @@ class FileStorage implements SampleStore {
         } finally {
             fileSystemTimer.record(Duration.between(start, Instant.now()));
         }
-        return ref;
     }
 
     @Override
@@ -65,6 +72,35 @@ class FileStorage implements SampleStore {
         } finally {
             fileSystemTimer.record(Duration.between(start, Instant.now()));
         }
+    }
+
+    @Override
+    public Iterator<Entry> iterate() {
+        var iterator = fileStorage.entrySet().iterator();
+        return new Iterator<>() {
+
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Entry next() {
+                var entry = iterator.next();
+                try {
+                    var content = RdfAdapter.asStatements(entry.getValue());
+                    return new Entry(entry.getKey(), content);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+
+        };
+    }
+
+    @Override
+    public void remove(SampleRef ref) {
+        fileStorage.remove(ref);
     }
 
     @Override

@@ -4,23 +4,25 @@ import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.node.AskNode;
 import com.linkedpipes.discovery.node.ExpandNode;
 import com.linkedpipes.discovery.node.Node;
+import com.linkedpipes.discovery.sample.DataSampleTransformer;
 import com.linkedpipes.discovery.sample.SampleRef;
 import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import org.eclipse.rdf4j.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Explore transformations applied to a single data source.
@@ -29,17 +31,11 @@ public class Discovery {
 
     private static final Logger LOG = LoggerFactory.getLogger(Discovery.class);
 
+    private static final int MB = 1024 * 1024;
+
     private final String iri;
 
     private final Dataset dataset;
-
-    private final ExpandNode expander;
-
-    private final List<Transformer> transformers;
-
-    private final List<Application> applications;
-
-    private final NodeFilter filter;
 
     /**
      * Nodes to visit.
@@ -53,74 +49,115 @@ public class Discovery {
      */
     private DiscoveryStatistics.Level levelStatistics;
 
-    private Instant currentLevelStart;
+    private SampleStore store;
 
-    private SampleStore sampleStore;
+    private final NodeFilter filter;
+
+    private final ExpandNode expander;
+
+    private int maxNodeExpansionTimeMs;
+
+    /**
+     * Discovery does not end after first exceeding of
+     * {@link #maxNodeExpansionTimeMs}, os it may just be saving memory to disk
+     * instead we stop discovery after second case.
+     */
+    private int nodeExpansionTimeExceeded = 0;
 
     private final Timer discoveryTimer;
 
+    private final List<Application> applications;
+
+    private final List<Transformer> transformers;
+
+    private final DataSampleTransformer dataSampleTransformer;
+
     public Discovery(
-            String iri,
-            Dataset dataset,
-            List<Transformer> transformers,
-            List<Application> applications,
-            NodeFilter filter,
-            SampleStore sampleStore,
+            String iri, Dataset dataset,
+            List<Transformer> transformers, List<Application> applications,
+            NodeFilter filter, SampleStore store,
+            int maxNodeExpansionTimeSeconds,
+            DataSampleTransformer dataSampleTransformer,
             MeterRegistry registry) {
         this.iri = iri;
         this.dataset = dataset;
-        this.transformers = transformers;
-        this.applications = applications;
-        this.sampleStore = sampleStore;
-        this.expander = new ExpandNode(
-                applications, transformers, sampleStore, registry);
+        this.store = store;
+        this.maxNodeExpansionTimeMs = maxNodeExpansionTimeSeconds * 1000;
+        this.discoveryTimer = registry.timer(MeterNames.DISCOVERY_TIME);
         this.filter = filter;
-        //
-        this.discoveryTimer =
-                registry.timer(MeterNames.DISCOVERY_TIME);
+        AskNode askNode = new AskNode(applications, transformers, registry);
+        this.expander = new ExpandNode(
+                store, filter, askNode, dataSampleTransformer, registry);
+        this.applications = applications;
+        this.transformers = transformers;
+        this.dataSampleTransformer = dataSampleTransformer;
+        LOG.info("Creating exploration for: {}", dataset.iri);
+        LOG.info("Data sample size: {} apps: {} transformers: {}",
+                dataset.sample.size(), applications.size(),
+                transformers.size());
     }
 
-    @SuppressFBWarnings(value = {"DM_GC"})
     public Node explore(int levelLimit) throws DiscoveryException {
-        // At the start of each exploration cycle we ask for a GC, it may
-        // not happen but it may help to get better values for the memory
-        // usage.
-        Runtime.getRuntime().gc();
-        //
         LOG.info("Running exploration for: {}", dataset.iri);
-        LOG.info("Data sample size: {} apps: {} transformers: {} memory: {} MB",
-                dataset.sample.size(), applications.size(),
-                transformers.size(), usedMemoryInMb());
         initializeStatistics();
-        Node root = createRoot();
-        initializeExploration(root);
-        int currentLevel = root.getLevel();
+        Node root = initializeExploration();
+        Instant nextLogTime = Instant.now().plus(15, ChronoUnit.MINUTES);
         while (!queue.isEmpty()) {
-            currentLevel = checkStartOfNextLevel(currentLevel);
-            if (currentLevel == levelLimit) {
-                LOG.info("Level limit ({}) reached!", levelLimit);
+            Node node = queue.pop();
+            if (startingNextLevel(node)) {
+                if (levelStatistics.level == levelLimit) {
+                    LOG.info("Level limit ({}) reached!", levelLimit);
+                    break;
+                }
+                finalizeStatisticsForCurrentLevel();
+                logCurrentLevelStatistics();
+                addNewLevelStatistics();
+                // Update next log time as we reached another level.
+                nextLogTime = Instant.now().plus(15, ChronoUnit.MINUTES);
+            }
+            Instant start = Instant.now();
+            try {
+                expander.expand(node);
+            } catch (OutOfMemoryError ex) {
+                LOG.info("Out of memory!");
                 break;
             }
-            Node next = queue.pop();
-            expander.expand(next);
-            addApplicationsAndTransformersOfExpandedNodeToStatistics(next);
-            levelStatistics.generated += next.getNext().size();
-            filterNewNodes(next);
-            levelStatistics.size += next.getNext().size();
-            addNewNodes(next.getNext());
-            // We do not need the node sample any more in main memory.
-            sampleStore.releaseFromMemory(next.getDataSampleRef());
+            node.setExpanded(true);
+            long durationMs = Duration.between(start, Instant.now()).toMillis();
+            if (durationMs > maxNodeExpansionTimeMs) {
+                nodeExpansionTimeExceeded += 1;
+                if (nodeExpansionTimeExceeded >= 2) {
+                    LOG.info("Node expansion takes to long ({} s)!",
+                            durationMs / 1000);
+                    break;
+                }
+            } else {
+                nodeExpansionTimeExceeded = 0;
+            }
+            // As the computation can take quite a long time we log
+            // one upon a time.
+            if (Instant.now().isAfter(nextLogTime)) {
+                nextLogTime = Instant.now().plus(15, ChronoUnit.MINUTES);
+                logProgress(durationMs);
+            }
+            // Update statistics.
+            levelStatistics.expandedNodes += 1;
+            if (node.isRedundant()) {
+                levelStatistics.filteredNodes += 1;
+            } else {
+                levelStatistics.newNodes += 1;
+                addNode(node);
+            }
+            // In any case we do not need the data in memory any more.
+            // But for redundant nodes the ref may not be available.
+            if (node.getDataSampleRef() != null) {
+                store.releaseFromMemory(node.getDataSampleRef());
+            }
         }
         finalizeStatisticsForCurrentLevel();
-        LOG.info("Discovery process finished.");
-        logCurrentLevelInfo();
+        logCurrentLevelStatistics();
+        LOG.info("Exploration finished.");
         return root;
-    }
-
-    private long usedMemoryInMb() {
-        Runtime runtime = Runtime.getRuntime();
-        long mb = 1024 * 1024;
-        return (runtime.totalMemory() - runtime.freeMemory()) / mb;
     }
 
     private void initializeStatistics() {
@@ -128,52 +165,58 @@ public class Discovery {
         statistics.discoveryIri = iri;
         statistics.dataset = new DiscoveryStatistics.DatasetRef(dataset);
         levelStatistics = new DiscoveryStatistics.Level();
+        levelStatistics.level = 0;
+        levelStatistics.startNodes = 1; // We start with just the root.
         statistics.levels.add(levelStatistics);
-        currentLevelStart = Instant.now();
     }
 
-    private Node createRoot() throws DiscoveryException {
-        SampleRef ref = sampleStore.store(dataset.sample, "root");
-        return new Node(Collections.singletonList(dataset), ref);
-    }
 
-    private void initializeExploration(Node root) throws DiscoveryException {
+    private Node initializeExploration() throws DiscoveryException {
+        List<Statement> dataSample =
+                dataSampleTransformer.transform(dataset.sample);
+        SampleRef ref = store.storeRoot(dataSample);
+        Node root = new Node(Collections.singletonList(dataset));
+        root.setDataSampleRef(ref);
+        // We do not add root to the filter as we call init on the filter.
         filter.init(root);
-        queue.add(root);
+        expander.expandWithDataSample(root);
+        root.setExpanded(true);
+        queue.addAll(root.getNext());
+        levelStatistics.nextLevel = root.getNext().size();
+        levelStatistics.expandedNodes += 1;
+        return root;
     }
 
-    private int checkStartOfNextLevel(int currentLevel) {
-        Node next = queue.peek();
-        if (next.getLevel() > currentLevel) {
-            onNextLevelStart();
-        }
-        return next.getLevel();
+    private void logProgress(long lastExpansionTimeSeconds) {
+        Runtime runtime = Runtime.getRuntime();
+        LOG.info(
+                "           filtered: {} new: {} next level: {} "
+                        + "used {} MB allocated: {} MB "
+                        + "last expansion: time {} ms",
+                levelStatistics.filteredNodes,
+                levelStatistics.newNodes,
+                levelStatistics.nextLevel,
+                (runtime.totalMemory() - runtime.freeMemory()) / MB,
+                runtime.totalMemory() / MB,
+                lastExpansionTimeSeconds);
     }
 
-    private void onNextLevelStart() {
-        finalizeStatisticsForCurrentLevel();
-        currentLevelStart = Instant.now();
-        // Log some more statistic.
-        logCurrentLevelInfo();
-        sampleStore.logAfterLevelFinished();
-        filter.logAfterLevelFinished();
-        // Add new level of statistics.
-        int levelIndex = levelStatistics.level + 1;
-        levelStatistics = new DiscoveryStatistics.Level();
-        levelStatistics.level = levelIndex;
-        statistics.levels.add(levelStatistics);
+    private boolean startingNextLevel(Node node) {
+        return node.getLevel() > levelStatistics.level;
     }
 
     private void finalizeStatisticsForCurrentLevel() {
-        Instant now = Instant.now();
-        levelStatistics.meters.put(
-                MeterNames.DISCOVERY_TIME,
-                Duration.between(currentLevelStart, now).getSeconds());
-        discoveryTimer.record(
-                Duration.between(currentLevelStart, now).getSeconds(),
-                TimeUnit.SECONDS);
+        levelStatistics.end = Instant.now();
+        discoveryTimer.record(Duration.between(
+                levelStatistics.start, levelStatistics.end));
     }
 
+    private void logCurrentLevelStatistics() {
+        logCurrentLevelInfo();
+        store.logAfterLevelFinished();
+        filter.logAfterLevelFinished();
+        dataSampleTransformer.logAfterLevelFinished();
+    }
 
     private void logCurrentLevelInfo() {
         int nemApplicationCount = 0;
@@ -190,53 +233,51 @@ public class Discovery {
                 }
             }
         }
+        Runtime runtime = Runtime.getRuntime();
         LOG.info(
-                " level: {} "
-                        + "generated nodes: {} new nodes: {} new apps: {} "
+                " level: {} filtered: {} new: {} "
+                        + "next level: {} new apps: {} "
                         + "apps: {} transformers: {} "
-                        + "memory: {} MB",
+                        + "used: {} MB allocated: {} MB",
                 levelStatistics.level,
-                levelStatistics.generated,
-                levelStatistics.size,
+                levelStatistics.filteredNodes,
+                levelStatistics.newNodes,
+                levelStatistics.nextLevel,
                 nemApplicationCount,
                 levelStatistics.applications.size(),
                 levelStatistics.transformers.size(),
-                usedMemoryInMb());
+                (runtime.totalMemory() - runtime.freeMemory()) / MB,
+                runtime.totalMemory() / MB);
     }
 
-    private void addApplicationsAndTransformersOfExpandedNodeToStatistics(
-            Node node) {
+    private void addNewLevelStatistics() {
+        int levelIndex = levelStatistics.level + 1;
+        levelStatistics = new DiscoveryStatistics.Level();
+        levelStatistics.level = levelIndex;
+        // We know that this is a start of a new level,
+        // so all in the queue is content of this level.
+        levelStatistics.startNodes = queue.size() + 1;
+        statistics.levels.add(levelStatistics);
+    }
+
+    private void addNode(Node node) throws DiscoveryException {
+        levelStatistics.nextLevel += node.getNext().size();
         levelStatistics.applications.addAll(node.getApplications());
-        levelStatistics.transformers.add(node.getTransformer());
+        // Root have a null transformer.
+        if (node.getTransformer() != null) {
+            levelStatistics.transformers.add(node.getTransformer());
+        }
         node.getApplications().forEach(application -> {
-            int value =
-                    levelStatistics.pipelinesPerApplication
-                            .getOrDefault(application, 0) + 1;
+            int value = levelStatistics.pipelinesPerApplication
+                    .getOrDefault(application, 0) + 1;
             levelStatistics.pipelinesPerApplication.put(application, value);
         });
+        // Add to next.
+        queue.addAll(node.getNext());
+        // Add to filter.
+        filter.addNode(node);
     }
 
-    /**
-     * Filter out already explored (visited or waiting to be visited) nodes.
-     * So we do not visit the same state multiple times.
-     */
-    private void filterNewNodes(Node node) throws DiscoveryException {
-        List<Node> newNext = new ArrayList<>();
-        for (Node nextNode : node.getNext()) {
-            if (!filter.isNewNode(nextNode)) {
-                continue;
-            }
-            newNext.add(nextNode);
-        }
-        node.setNext(newNext);
-    }
-
-    private void addNewNodes(List<Node> newNodes) throws DiscoveryException {
-        queue.addAll(newNodes);
-        for (Node node : newNodes) {
-            filter.addNode(node);
-        }
-    }
 
     public String getIri() {
         return iri;
@@ -246,24 +287,24 @@ public class Discovery {
         return dataset;
     }
 
-    public List<Transformer> getTransformers() {
-        return Collections.unmodifiableList(transformers);
-    }
-
-    public List<Application> getApplications() {
-        return Collections.unmodifiableList(applications);
-    }
-
     public DiscoveryStatistics getStatistics() {
         return statistics;
     }
 
-    public SampleStore getSampleStore() {
-        return sampleStore;
+    public SampleStore getStore() {
+        return store;
     }
 
     public void cleanUp() {
-        sampleStore.cleanUp();
+        store.cleanUp();
+    }
+
+    public List<Application> getApplications() {
+        return applications;
+    }
+
+    public List<Transformer> getTransformers() {
+        return transformers;
     }
 
 }

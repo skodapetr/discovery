@@ -1,22 +1,20 @@
 package com.linkedpipes.discovery.filter;
 
-import com.google.common.collect.Sets;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.node.Node;
+import com.linkedpipes.discovery.sample.DiffStore;
 import com.linkedpipes.discovery.sample.SampleRef;
 import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.util.Models;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,37 +22,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Use isomorphism on diff from root.
- *
- * <p>Times for https---nkod.opendata.cz-sparql 00:21
- * Exploration statistics:
- * - generated         : 1024
- * - output tree size  : 256
- * Runtime statistics:
- * - filter.diff.create total: 0 s
- * - filter.diff.compare total: 9 s
- *
- * <p>Times for http---data.open.ac.uk-query 03:26
- * Exploration statistics:
- * - generated         : 2816
- * - output tree size  : 512
- * Runtime statistics:
- * - repository.create total: 21 s
- * - filter.diff.create total: 1 s
- * - filter.diff.compare total: 134 s
- */
 public class DiffBasedFilter implements NodeFilter {
 
-    private static class UsageReport {
+    public static class UsageReport {
 
+        /**
+         * Number of times filter on given level wa used.
+         */
         int used = 0;
 
+        /**
+         * Number of times filter match given data sample.
+         */
         int match = 0;
 
+        /**
+         * Duration in ms of filtering using given filter.
+         */
         long duration = 0;
 
     }
+
+    /**
+     * We need to store information about added and removed
+     * statements as a single diff would not capture that.
+     */
+    private static class DiffRef {
+
+        public final SampleRef added;
+
+        public final SampleRef removed;
+
+        public final Integer size;
+
+        public DiffRef(SampleRef added, SampleRef removed, Integer size) {
+            this.added = added;
+            this.removed = removed;
+            this.size = size;
+        }
+
+    }
+
+    public static final String REF_NAME = "diff";
 
     private static final Logger LOG =
             LoggerFactory.getLogger(DiffBasedFilter.class);
@@ -62,12 +71,12 @@ public class DiffBasedFilter implements NodeFilter {
     /**
      * We keep the root sample in main memory as we use it very often.
      */
-    private Set<Statement> rootSample;
+    private Set<Statement> root;
 
     /**
      * Store NodeDiffs in lists by size.
      */
-    private final Map<Integer, List<SampleRef>> nodesBySize = new HashMap<>();
+    private final Map<Integer, List<DiffRef>> nodesBySize = new HashMap<>();
 
     private final Map<Integer, UsageReport> usageReport = new HashMap<>();
 
@@ -82,69 +91,78 @@ public class DiffBasedFilter implements NodeFilter {
         this.createDiffNodeTimer =
                 registry.timer(MeterNames.FILTER_DIFF_CREATE);
         this.compareDiffNodesTimer =
-                registry.timer(MeterNames.FILTER_DIFF_FILTER);
+                registry.timer(MeterNames.RDF4J_MODEL_ISOMORPHIC);
     }
 
     @Override
     public void init(Node root) throws DiscoveryException {
-        this.rootSample =
-                new HashSet<>(sampleStore.load(root.getDataSampleRef()));
-        this.nodesBySize.clear();
+        this.root = new HashSet<>(sampleStore.load(root.getDataSampleRef()));
     }
 
     @Override
     public void addNode(Node node) throws DiscoveryException {
-        Set<Statement> diff = createNodeDiff(node);
-        Integer size = diff.size();
+        DiffRef diff = createNodeDiffRef(node);
+        Integer size = diff.size;
         if (!nodesBySize.containsKey(size)) {
             nodesBySize.put(size, new ArrayList<>());
             usageReport.put(size, new UsageReport());
         }
-        SampleRef ref = sampleStore.store(new ArrayList<>(diff), "filter-diff");
-        nodesBySize.get(size).add(ref);
+        nodesBySize.get(size).add(diff);
     }
 
-    private Set<Statement> createNodeDiff(Node node) throws DiscoveryException {
+    private DiffRef createNodeDiffRef(Node node) throws DiscoveryException {
+        List<Statement> nodeSample = sampleStore.load(node.getDataSampleRef());
+        DiffStore.Diff diff = createNodeDiff(nodeSample);
+        return new DiffRef(
+                sampleStore.store(diff.added, REF_NAME + "_added"),
+                sampleStore.store(diff.removed, REF_NAME + "_remove"),
+                diff.size());
+    }
+
+    private DiffStore.Diff createNodeDiff(List<Statement> nodeSample) {
         Instant start = Instant.now();
-        try {
-            Set<Statement> nodeSample =
-                    new HashSet<>(sampleStore.load(node.getDataSampleRef()));
-            return Sets.difference(rootSample, nodeSample);
-        } finally {
-            createDiffNodeTimer.record(Duration.between(start, Instant.now()));
-        }
+        DiffStore.Diff diff = DiffStore.Diff.create(root, nodeSample);
+        createDiffNodeTimer.record(Duration.between(start, Instant.now()));
+        return diff;
     }
 
     @Override
-    public boolean isNewNode(Node node) throws DiscoveryException {
-        Set<Statement> diff = createNodeDiff(node);
-        Instant start = Instant.now();
+    public boolean isNewNode(Node node, List<Statement> dataSample)
+            throws DiscoveryException {
+        DiffStore.Diff diff = createNodeDiff(dataSample);
         UsageReport report = usageReport.get(diff.size());
-        try {
-            for (SampleRef visitedRef : getForSize(diff.size())) {
-                if (match(diff, sampleStore.load(visitedRef))) {
-                    report.match += 1;
-                    return false;
-                }
-            }
-            return true;
-        } finally {
-            Duration duration = Duration.between(start, Instant.now());
-            compareDiffNodesTimer.record(duration);
-            if (report != null) {
-                report.used += 1;
-                report.duration += duration.toMillis();
+        for (var visitedRef : getForSize(diff.size())) {
+            DiffStore.Diff visitedDiff = resolve(visitedRef);
+            if (match(diff, visitedDiff, report)) {
+                return false;
             }
         }
+        return true;
     }
 
-    private List<SampleRef> getForSize(Integer size) {
+    private List<DiffRef> getForSize(Integer size) {
         return nodesBySize.getOrDefault(size, Collections.emptyList());
     }
 
+    private DiffStore.Diff resolve(DiffRef ref) throws DiscoveryException {
+        return DiffStore.Diff.fromDiff(
+                sampleStore.load(ref.added),
+                sampleStore.load(ref.removed));
+    }
+
     private boolean match(
-            Collection<Statement> left, Collection<Statement> right) {
-        return Models.isomorphic(left, right);
+            DiffStore.Diff left, DiffStore.Diff right, UsageReport report) {
+        Instant start = Instant.now();
+        boolean result = DiffBasedFilterForDiffStore.match(left, right);
+        Duration duration = Duration.between(start, Instant.now());
+        compareDiffNodesTimer.record(duration);
+        // Add information to report.
+        report.used += 1;
+        report.duration += duration.toMillis();
+        if (result) {
+            report.match += 1;
+        }
+        return result;
     }
 
     @Override

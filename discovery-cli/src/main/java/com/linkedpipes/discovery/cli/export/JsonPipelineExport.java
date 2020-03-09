@@ -14,6 +14,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Export all given nodes, any reduction of redundant nodes must be
+ * done in caller component.
+ */
 public class JsonPipelineExport {
 
     private static class Component {

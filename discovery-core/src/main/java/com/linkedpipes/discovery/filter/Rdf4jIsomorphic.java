@@ -17,16 +17,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Times for https---nkod.opendata.cz-sparql 02:15
- * Exploration statistics:
- * - generated         : 1024
- * - output tree size  : 256
- * Runtime statistics:
- * - filter.isomorphic.compare total: 126 s
- *
- * <p>Times for http---data.open.ac.uk-query
- */
 public class Rdf4jIsomorphic implements NodeFilter {
 
     private static final Logger LOG =
@@ -40,7 +30,7 @@ public class Rdf4jIsomorphic implements NodeFilter {
 
     public Rdf4jIsomorphic(SampleStore sampleStore, MeterRegistry registry) {
         this.sampleStore = sampleStore;
-        this.timer = registry.timer(MeterNames.FILTER_ISOMORPHIC);
+        this.timer = registry.timer(MeterNames.RDF4J_MODEL_ISOMORPHIC);
     }
 
     @Override
@@ -51,24 +41,22 @@ public class Rdf4jIsomorphic implements NodeFilter {
     @Override
     public void addNode(Node node) {
         sampleStore.addReferenceUser(node.getDataSampleRef());
+        samples.add(node.getDataSampleRef());
     }
 
     @Override
-    public boolean isNewNode(Node node) throws DiscoveryException {
-        Instant start = Instant.now();
-        try {
-            List<Statement> nodeSample =
-                    sampleStore.load(node.getDataSampleRef());
-            for (SampleRef visitedRef : samples) {
-                List<Statement> visitedSample = sampleStore.load(visitedRef);
-                if (Models.isomorphic(nodeSample, visitedSample)) {
-                    return false;
-                }
-            }
-            return true;
-        } finally {
+    public boolean isNewNode(Node node, List<Statement> dataSample)
+            throws DiscoveryException {
+        for (SampleRef visitedRef : samples) {
+            List<Statement> visitedSample = sampleStore.load(visitedRef);
+            Instant start = Instant.now();
+            boolean isIsomorphic = Models.isomorphic(dataSample, visitedSample);
             timer.record(Duration.between(start, Instant.now()));
+            if (isIsomorphic) {
+                return false;
+            }
         }
+        return true;
     }
 
     @Override

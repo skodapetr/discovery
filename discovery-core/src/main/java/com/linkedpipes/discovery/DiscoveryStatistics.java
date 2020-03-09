@@ -5,6 +5,8 @@ import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.rdf.LangString;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,19 +35,45 @@ public class DiscoveryStatistics {
     public static class Level {
 
         /**
+         * Time when execution of this level started.
+         */
+        public Instant start = Instant.now();
+
+        /**
+         * Time when execution of this level finished.
+         */
+        public Instant end;
+
+        /**
          * Starting from zero (root) denote the level in the exploration tree.
          */
         public int level;
 
         /**
-         * Number of nodes generated on given level before filtering.
+         * Number of nodes on this level at the start of the exploration.
          */
-        public int generated;
+        public int startNodes;
 
         /**
-         * Number of nodes in the level after filtering.
+         * Number of nodes expanded on this level.
          */
-        public int size;
+        public int expandedNodes;
+
+        /**
+         * Number of filtered nodes on this level.
+         */
+        public int filteredNodes;
+
+        /**
+         * Number of new nodes on this level, i.e. expanded and not filtered.
+         * When level is finished hold number of nodes after filtering.
+         */
+        public int newNodes;
+
+        /**
+         * Number of nodes generated for next level.
+         */
+        public int nextLevel;
 
         /**
          * Number of pipelines, i.e. count of all applications on all nodes
@@ -64,27 +92,26 @@ public class DiscoveryStatistics {
          */
         public Set<Transformer> transformers = new HashSet<>();
 
-        /**
-         * Information to store from meters.
-         */
-        public Map<String, Long> meters = new HashMap<>();
-
         public void add(Level other) {
+            if (start == null || other.start.isBefore(start)) {
+                start = other.start;
+            }
+            if (end == null || other.end.isAfter(end)) {
+                end = other.end;
+            }
+            startNodes = 0;
+            expandedNodes += other.expandedNodes;
+            filteredNodes += other.filteredNodes;
+            newNodes += other.newNodes;
+            nextLevel = 0; // Make no sense on merge.
+            applications.addAll(other.applications);
+            transformers.addAll(other.transformers);
+            //
             for (var entry : other.pipelinesPerApplication.entrySet()) {
                 int value = entry.getValue()
                         + pipelinesPerApplication.getOrDefault(
                         entry.getKey(), 0);
                 pipelinesPerApplication.put(entry.getKey(), value);
-            }
-
-            generated += other.generated;
-            size += other.size;
-            applications.addAll(other.applications);
-            transformers.addAll(other.transformers);
-            for (var entry : other.meters.entrySet()) {
-                long value = entry.getValue()
-                        + meters.getOrDefault(entry.getKey(), 0L);
-                meters.put(entry.getKey(), value);
             }
         }
 
@@ -96,6 +123,10 @@ public class DiscoveryStatistics {
                     .stream()
                     .reduce(Integer::sum)
                     .orElseGet(() -> 0);
+        }
+
+        public long durationInSeconds() {
+            return Duration.between(start, end).toSeconds();
         }
 
     }

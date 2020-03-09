@@ -31,26 +31,32 @@ public class Node {
 
     private final int level;
 
-    private final SampleRef dataSampleRef;
+    private SampleRef dataSampleRef = null;
 
-    public Node(List<Dataset> sources, SampleRef dataSampleRef) {
+    /**
+     * True if the state of this node was explored before by other node.
+     */
+    private boolean redundant = false;
+
+    /**
+     * True if the node was visited and expanded.
+     */
+    private boolean expanded = false;
+
+    public Node(List<Dataset> sources) {
         this.sources = sources;
         this.transformer = null;
         this.applications = Collections.emptyList();
         this.previous = null;
         this.level = 0;
-        this.dataSampleRef = dataSampleRef;
     }
 
-    public Node(
-            Node previous, Transformer transformer,
-            SampleRef dataSampleRef) {
+    public Node(Node previous, Transformer transformer) {
         this.sources = previous.sources;
         this.transformer = transformer;
         this.applications = Collections.emptyList();
         this.previous = previous;
         this.level = previous.level + 1;
-        this.dataSampleRef = dataSampleRef;
     }
 
     public List<Dataset> getSources() {
@@ -91,6 +97,26 @@ public class Node {
 
     public SampleRef getDataSampleRef() {
         return dataSampleRef;
+    }
+
+    public void setDataSampleRef(SampleRef dataSampleRef) {
+        this.dataSampleRef = dataSampleRef;
+    }
+
+    public boolean isRedundant() {
+        return redundant;
+    }
+
+    public void setRedundant(boolean redundant) {
+        this.redundant = redundant;
+    }
+
+    public boolean isExpanded() {
+        return expanded;
+    }
+
+    public void setExpanded(boolean expanded) {
+        this.expanded = expanded;
     }
 
     public void accept(NodeVisitor visitor) {

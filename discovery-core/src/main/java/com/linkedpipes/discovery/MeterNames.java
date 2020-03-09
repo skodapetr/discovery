@@ -13,7 +13,7 @@ public final class MeterNames {
     /**
      * Time used to load/save data samples in/to file system.
      */
-    public static final String DATA_SAMPLE_STORAGE = "filesystem";
+    public static final String FILE_STORE_IO = "store.file.io";
 
     /**
      * Time used to create RDF4J repository for a data samples, include
@@ -39,19 +39,35 @@ public final class MeterNames {
     public static final String STORE_MAP_MEMORY = "store.map_memory";
 
     /**
-     * TIme used in isomorphic-based filter to compare nodes.
-     */
-    public static final String FILTER_ISOMORPHIC =
-            "filter.isomorphic.compare";
-
-    /**
      * Time used in diff-based filters used to crate diffs.
      */
     public static final String FILTER_DIFF_CREATE = "filter.diff.create";
 
     /**
-     * Time used to compare Node data samples in diff-based filter.
+     * Time used to compare Node data samples in diff-based filter,
+     * i.e. execution of rdf4j Models.isomorphic.
      */
-    public static final String FILTER_DIFF_FILTER = "filter.diff.compare";
+    public static final String RDF4J_MODEL_ISOMORPHIC =
+            "rdf4j.isomorphic";
+
+    /**
+     * Time used to breakup statements in breakup store.
+     */
+    public static final String BREAKUP_STORE_ADD = "store.breakup.add";
+
+    /**
+     * Time used to construct statements in breakup store.
+     */
+    public static final String BREAKUP_STORE_GET = "store.breakup.get";
+
+    /**
+     * Time used to perform disk operation in breakup store.
+     */
+    public static final String BREAKUP_STORE_IO = "store.breakup.io";
+
+    /**
+     * Time to construct statements in diff store.
+     */
+    public static final String DIFF_STORE_CONSTRUCT = "store.diff.construct";
 
 }

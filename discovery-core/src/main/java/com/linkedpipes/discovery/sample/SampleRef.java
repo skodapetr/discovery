@@ -11,4 +11,15 @@ public class SampleRef {
      */
     int memoryCount = 1;
 
+    final String name;
+
+    public SampleRef(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "SampleRef: " + name;
+    }
+
 }

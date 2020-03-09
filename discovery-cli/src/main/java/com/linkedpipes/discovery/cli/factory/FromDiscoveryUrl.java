@@ -8,6 +8,7 @@ import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
+import com.linkedpipes.discovery.sample.DataSampleTransformer;
 import com.linkedpipes.discovery.sample.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.rdf4j.model.IRI;
@@ -27,6 +28,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class FromDiscoveryUrl extends DiscoveryBuilder {
@@ -57,11 +59,18 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private List<Dataset> datasets = new ArrayList<>();
 
-    private boolean ignoreIssues = false;
+    private List<Application> applications = new ArrayList<>();
 
-    private File report = null;
+    private List<Transformer> transformers = new ArrayList<>();
 
-    public FromDiscoveryUrl(String discoveryUrl) {
+    protected Function<String, String> nameFactory = null;
+
+    public FromDiscoveryUrl(
+            BuilderConfiguration configuration,
+            Function<String, String> nameFactory,
+            String discoveryUrl) {
+        super(configuration);
+        this.nameFactory = nameFactory;
         this.discoveryUrl = discoveryUrl;
     }
 
@@ -71,9 +80,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
         loadTemplates(templates);
-        LOG.info(
-                "Templates loaded "
-                        + "applications: {} transformers: {} datasets: {}",
+        LOG.info("Loaded applications: {} transformers: {} datasets: {}",
                 applications.size(),
                 transformers.size(),
                 datasets.size());
@@ -91,7 +98,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         try {
             statements = RdfAdapter.asStatements(new URL(url));
         } catch (IOException ex) {
-            if (!ignoreIssues) {
+            if (!configuration.ignoreIssues) {
                 throw ex;
             }
             LOG.warn("Can't resolve URL: {}", url);
@@ -125,7 +132,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
             try {
                 statements = RdfAdapter.asStatements(new URL(url));
             } catch (Exception ex) {
-                if (!ignoreIssues) {
+                if (!configuration.ignoreIssues) {
                     throw ex;
                 }
                 LOG.warn("Can't resolve template: {}", url, ex);
@@ -167,11 +174,10 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
             try {
                 dataSample = RdfAdapter.asStatements(new URL(sampleUrl));
             } catch (Exception ex) {
-                if (!ignoreIssues) {
+                if (!configuration.ignoreIssues) {
                     throw ex;
                 }
-                LOG.warn(
-                        "Can't resolve dataset sample on {} for {}",
+                LOG.warn("Can't resolve dataset sample on {} for {}",
                         sampleUrl, iri.stringValue(), ex);
                 appendToReport("Invalid dataset sample URL: " + sampleUrl);
                 return;
@@ -200,6 +206,7 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
     }
 
     private void appendToReport(String line) throws IOException {
+        File report = configuration.reportFile();
         if (report == null) {
             return;
         }
@@ -213,23 +220,20 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         }
     }
 
-    public void setIgnoreIssues(boolean ignoreIssues) {
-        this.ignoreIssues = ignoreIssues;
-    }
-
-    public void setReport(File report) {
-        this.report = report;
-    }
-
     private Discovery createDiscovery(
             String iri, Dataset dataset,
             MeterRegistry registry) {
-        SampleStore sampleStore = storeFactory.apply(iri);
-        NodeFilter filterStrategy =
-                createFilterStrategy(sampleStore, registry);
+        String name = nameFactory.apply(iri);
+        File directory = new File(configuration.output, name);
+        SampleStore store = createSampleStore(registry, directory);
+        NodeFilter filterStrategy = createFilterStrategy(store, registry);
+        DataSampleTransformer transformer =
+                createDataDataSampleTransformer(registry);
         return new Discovery(
                 iri, dataset, transformers, applications,
-                filterStrategy, sampleStore, registry);
+                filterStrategy, store,
+                configuration.maxNodeExpansionTimeSeconds,
+                transformer, registry);
     }
 
 }
