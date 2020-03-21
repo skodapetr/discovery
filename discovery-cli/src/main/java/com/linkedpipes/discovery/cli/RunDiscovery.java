@@ -77,6 +77,7 @@ class RunDiscovery {
             String name, File directory, Dataset dataset,
             Discovery discovery, MeterRegistry registry)
             throws DiscoveryException {
+        directory.mkdirs();
         DiscoveryStatisticsAdapter statisticsAdapter =
                 new DiscoveryStatisticsAdapter();
         if (configuration.resume
