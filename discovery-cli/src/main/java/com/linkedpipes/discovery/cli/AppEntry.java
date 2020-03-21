@@ -17,8 +17,6 @@ import java.io.File;
  */
 public class AppEntry {
 
-    private static final String DEFAULT_FILTER_STRATEGY = "diff";
-
     public static void main(String[] args) throws Exception {
         (new AppEntry()).run(args);
     }
@@ -125,10 +123,10 @@ public class AppEntry {
         configuration.levelLimit =
                 Integer.parseInt(cmd.getOptionValue("LevelLimit", "-1"));
         configuration.output = new File(cmd.getOptionValue("Output"));
-        configuration.filter =
-                cmd.getOptionValue("Filter", DEFAULT_FILTER_STRATEGY);
-        configuration.store =
-                cmd.getOptionValue("Store", DEFAULT_FILTER_STRATEGY);
+        configuration.filter = cmd.getOptionValue("Filter",
+                BuilderConfiguration.DEFAULT_FILTER);
+        configuration.store = cmd.getOptionValue("Store",
+                BuilderConfiguration.DEFAULT_STORE);
         configuration.discoveryTimeLimit =
                 Integer.parseInt(
                         cmd.getOptionValue("DiscoveryTimeLimit", "-1"));
