@@ -61,6 +61,8 @@ class LoadRemoteDefinition {
 
     protected BuilderConfiguration configuration;
 
+    private String iri;
+
     private final String discoveryUrl;
 
     private List<Dataset> datasets = new ArrayList<>();
@@ -116,6 +118,7 @@ class LoadRemoteDefinition {
             return new ArrayList<>();
         }
         Resource input = inputs.get(0);
+        iri = input.stringValue();
         for (Statement statement : statements) {
             if (!statement.getSubject().equals(input)) {
                 continue;
@@ -237,6 +240,10 @@ class LoadRemoteDefinition {
             appendToReport("Missing dataset.");
             throw new Exception("Missing dataset");
         }
+    }
+
+    public String getIri() {
+        return iri;
     }
 
     public List<Dataset> getDatasets() {

@@ -91,6 +91,7 @@ class RunDiscovery {
                 new CollectStatistics(dataset);
         discovery.addListener(collectStatistics);
         DiscoveryRunner discoveryRunner = new DiscoveryRunner();
+        LOG.info("Exploring dataset: {}", dataset.iri);
         discoveryRunner.explore(discovery);
         // Save resume data if we have not searched all.
         DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();

@@ -21,7 +21,7 @@ public class DiscoveryRunner {
      */
     public void explore(Discovery context)
             throws DiscoveryException {
-        LOG.info("Running discovery for: {} ", context.getIri());
+        LOG.info("Running discovery {}", context.getIri());
         ExpandNode expander = createExpander(context);
         if (!onDiscoveryWillRun(context)) {
             LOG.info("Aborting discovery.");

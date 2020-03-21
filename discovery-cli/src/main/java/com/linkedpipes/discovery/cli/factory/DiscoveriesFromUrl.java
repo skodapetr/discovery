@@ -52,7 +52,8 @@ public class DiscoveriesFromUrl {
         datasets.sort(Comparator.comparing(dataset -> dataset.iri));
         for (int index = 0; index < datasets.size(); ++index) {
             String name = "discovery_" + String.format("%03d", index);
-            String iri = discoveryUrl + "/" + String.format("%03d", index);
+            String iri = definition.getIri()
+                    + "/" + String.format("%03d", index);
             File directory = new File(configuration.output, name);
             Discovery discovery = createDiscovery(
                     iri, directory, datasets.get(index), definition, registry);
