@@ -1,16 +1,12 @@
 package com.linkedpipes.discovery.cli.factory;
 
-import com.linkedpipes.discovery.Discovery;
-import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.model.TransformerGroup;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
-import com.linkedpipes.discovery.sample.DataSampleTransformer;
-import com.linkedpipes.discovery.sample.SampleStore;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -28,19 +24,22 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class FromDiscoveryUrl extends DiscoveryBuilder {
+class LoadRemoteDefinition {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(FromDiscoveryUrl.class);
+            LoggerFactory.getLogger(LoadRemoteDefinition.class);
 
     private static final IRI HAS_TEMPLATE;
 
     private static final IRI HAS_DATA_SAMPLE;
 
     private static final IRI HAS_IMPORT;
+
+    private static final IRI HAS_TRANSFORMER_GROUP;
+
+    private static final IRI INPUT;
 
     static {
         SimpleValueFactory valueFactory = SimpleValueFactory.getInstance();
@@ -53,7 +52,14 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         HAS_IMPORT = valueFactory.createIRI(
                 "https://discovery.linkedpipes.com/vocabulary/"
                         + "discovery/import");
+        HAS_TRANSFORMER_GROUP = valueFactory.createIRI(
+                "https://discovery.linkedpipes.com/vocabulary/discovery/"
+                        + "hasTransformerGroup");
+        INPUT = valueFactory.createIRI(
+                "https://discovery.linkedpipes.com/vocabulary/discovery/Input");
     }
+
+    protected BuilderConfiguration configuration;
 
     private final String discoveryUrl;
 
@@ -63,19 +69,15 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
 
     private List<Transformer> transformers = new ArrayList<>();
 
-    protected Function<String, String> nameFactory = null;
+    private List<TransformerGroup> groups = new ArrayList<>();
 
-    public FromDiscoveryUrl(
-            BuilderConfiguration configuration,
-            Function<String, String> nameFactory,
-            String discoveryUrl) {
-        super(configuration);
-        this.nameFactory = nameFactory;
+    public LoadRemoteDefinition(
+            BuilderConfiguration configuration, String discoveryUrl) {
+        this.configuration = configuration;
         this.discoveryUrl = discoveryUrl;
     }
 
-    @Override
-    public List<Discovery> create(MeterRegistry registry) throws Exception {
+    public void load() throws Exception {
         LOG.info("Collecting templates for: {}", discoveryUrl);
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
@@ -85,12 +87,6 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 transformers.size(),
                 datasets.size());
         checkIsValid();
-        List<Discovery> result = new ArrayList<>();
-        for (int index = 0; index < datasets.size(); ++index) {
-            String iri = discoveryUrl + "/" + index;
-            result.add(createDiscovery(iri, datasets.get(index), registry));
-        }
-        return result;
     }
 
     private List<String> loadTemplateUrls(String url) throws IOException {
@@ -102,27 +98,60 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
                 throw ex;
             }
             LOG.warn("Can't resolve URL: {}", url);
-            appendToReport("Invalid IMPORT url: " + url);
+            appendToReport("Invalid import url: " + url);
             return new ArrayList<>();
         }
         // We do not filter by URL as the URL may contain
         // extension.
-        List<String> result = statements.stream()
-                .filter(st -> st.getPredicate().equals(HAS_TEMPLATE))
-                .filter(st -> st.getObject() instanceof IRI)
-                .map(st -> st.getObject().stringValue())
+        List<Resource> inputs = statements.stream()
+                .filter(st -> RDF.TYPE.equals(st.getPredicate()))
+                .filter(st -> st.getObject().equals(INPUT))
+                .map(st -> st.getSubject())
                 .collect(Collectors.toList());
-        for (Statement statement : statements) {
-            if (!statement.getPredicate().equals(HAS_IMPORT)) {
-                continue;
-            }
-            if (!(statement.getSubject() instanceof IRI)) {
-                continue;
-            }
-            result.addAll(loadTemplateUrls(
-                    statement.getObject().stringValue()));
+        List<String> templates = new ArrayList<>();
+        if (inputs.size() != 1) {
+            LOG.warn("Invalid number of inputs ({}) for URL: {}",
+                    inputs.size(), url);
+            appendToReport("Invalid number of inputs for: " + url);
+            return new ArrayList<>();
         }
-        return result;
+        Resource input = inputs.get(0);
+        for (Statement statement : statements) {
+            if (!statement.getSubject().equals(input)) {
+                continue;
+            }
+            if (HAS_IMPORT.equals(statement.getPredicate())) {
+                if (statement.getObject() instanceof IRI) {
+                    templates.addAll(loadTemplateUrls(
+                            statement.getObject().stringValue()));
+                }
+            } else if (HAS_TEMPLATE.equals(statement.getPredicate())) {
+                if (statement.getObject() instanceof IRI) {
+                    templates.add(statement.getObject().stringValue());
+                }
+            } else if (HAS_TRANSFORMER_GROUP.equals(statement.getPredicate())) {
+                if (statement.getObject() instanceof Resource) {
+                    onTransformerGroup(
+                            (Resource)statement.getObject(), statements);
+                }
+            }
+        }
+        return templates;
+    }
+
+    private void appendToReport(String line) throws IOException {
+        File report = configuration.reportFile();
+        if (report == null) {
+            return;
+        }
+        report.getParentFile().mkdirs();
+        try (var writer = new PrintWriter(
+                new OutputStreamWriter(
+                        new FileOutputStream(report, true),
+                        StandardCharsets.UTF_8))) {
+            writer.write(line);
+            writer.write("\n");
+        }
     }
 
     private void loadTemplates(List<String> templates)
@@ -198,6 +227,11 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         transformers.add(ModelAdapter.loadTransformer(statements));
     }
 
+    private void onTransformerGroup(
+            Resource resource, List<Statement> statements) {
+        groups.add(ModelAdapter.loadTransformerGroup(statements, resource));
+    }
+
     private void checkIsValid() throws Exception {
         if (datasets.isEmpty()) {
             appendToReport("Missing dataset.");
@@ -205,35 +239,20 @@ public class FromDiscoveryUrl extends DiscoveryBuilder {
         }
     }
 
-    private void appendToReport(String line) throws IOException {
-        File report = configuration.reportFile();
-        if (report == null) {
-            return;
-        }
-        report.getParentFile().mkdirs();
-        try (var writer = new PrintWriter(
-                new OutputStreamWriter(
-                        new FileOutputStream(report, true),
-                        StandardCharsets.UTF_8))) {
-            writer.write(line);
-            writer.write("\n");
-        }
+    public List<Dataset> getDatasets() {
+        return datasets;
     }
 
-    private Discovery createDiscovery(
-            String iri, Dataset dataset,
-            MeterRegistry registry) {
-        String name = nameFactory.apply(iri);
-        File directory = new File(configuration.output, name);
-        SampleStore store = createSampleStore(registry, directory);
-        NodeFilter filterStrategy = createFilterStrategy(store, registry);
-        DataSampleTransformer transformer =
-                createDataDataSampleTransformer(registry);
-        return new Discovery(
-                iri, dataset, transformers, applications,
-                filterStrategy, store,
-                configuration.maxNodeExpansionTimeSeconds,
-                transformer, registry);
+    public List<Application> getApplications() {
+        return applications;
+    }
+
+    public List<Transformer> getTransformers() {
+        return transformers;
+    }
+
+    public List<TransformerGroup> getGroups() {
+        return groups;
     }
 
 }

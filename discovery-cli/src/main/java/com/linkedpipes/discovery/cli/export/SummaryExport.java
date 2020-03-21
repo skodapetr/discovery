@@ -1,6 +1,6 @@
 package com.linkedpipes.discovery.cli.export;
 
-import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
+import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
 import com.opencsv.CSVWriter;
 
 import java.io.File;
@@ -15,10 +15,10 @@ import java.util.List;
 public class SummaryExport {
 
     private static class DiscoveryGroups extends
-            HashMap<String, List<DiscoveryStatisticsInPath>> {
+            HashMap<String, List<NamedDiscoveryStatistics>> {
 
-        public DiscoveryGroups(Collection<DiscoveryStatisticsInPath> items) {
-            for (DiscoveryStatisticsInPath item : items) {
+        public DiscoveryGroups(Collection<NamedDiscoveryStatistics> items) {
+            for (NamedDiscoveryStatistics item : items) {
                 String key = item.discoveryIri;
                 if (!containsKey(key)) {
                     put(key, new ArrayList<>());
@@ -66,7 +66,7 @@ public class SummaryExport {
     };
 
     public static void export(
-            Collection<DiscoveryStatisticsInPath> statistics,
+            Collection<NamedDiscoveryStatistics> statistics,
             File directory) throws IOException {
         directory.mkdirs();
         exportDiscovery(
@@ -84,15 +84,15 @@ public class SummaryExport {
     }
 
     private static void exportDiscovery(
-            Collection<DiscoveryStatisticsInPath> statistics,
+            Collection<NamedDiscoveryStatistics> statistics,
             File output) throws IOException {
         DiscoveryGroups groups = new DiscoveryGroups(statistics);
         try (var printWriter = new PrintWriter(output, StandardCharsets.UTF_8);
                 var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
             writer.writeNext(HEADER_DISCOVERY);
             for (var groupEntry : groups.entrySet()) {
-                DiscoveryStatisticsInPath.Level stats =
-                        new DiscoveryStatisticsInPath.Level();
+                NamedDiscoveryStatistics.Level stats =
+                        new NamedDiscoveryStatistics.Level();
                 for (var discoveryEntry : groupEntry.getValue()) {
                     for (var level : discoveryEntry.levels) {
                         stats.add(level);
@@ -101,7 +101,7 @@ public class SummaryExport {
                 String[] row = {
                         groupEntry.getKey(),
                         Integer.toString(stats.pipelinesCount()),
-                        Long.toString(stats.durationInSeconds()),
+                        Long.toString(stats.durationInSeconds),
                         Integer.toString(stats.applications.size()),
                         Integer.toString(groupEntry.getValue().size()),
                         Integer.toString(stats.transformers.size())
@@ -112,15 +112,15 @@ public class SummaryExport {
     }
 
     private static void exportDatasetDiscovery(
-            Collection<DiscoveryStatisticsInPath> statistics,
+            Collection<NamedDiscoveryStatistics> statistics,
             File output) throws IOException {
         try (var printWriter = new PrintWriter(output, StandardCharsets.UTF_8);
                 var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
             writer.writeNext(HEADER_DATASET_DISCOVERY);
             for (var entry : statistics) {
-                DiscoveryStatisticsInPath.Level agg = entry.aggregate();
+                NamedDiscoveryStatistics.Level agg = entry.aggregate();
                 String[] row = {
-                        entry.path,
+                        entry.name,
                         entry.dataset.iri,
                         entry.discoveryIri,
                         entry.dataset.title.asString(),
@@ -133,15 +133,15 @@ public class SummaryExport {
     }
 
     private static void exportApplicationDiscovery(
-            Collection<DiscoveryStatisticsInPath> statistics,
+            Collection<NamedDiscoveryStatistics> statistics,
             File output) throws IOException {
         DiscoveryGroups groups = new DiscoveryGroups(statistics);
         try (var printWriter = new PrintWriter(output, StandardCharsets.UTF_8);
                 var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
             writer.writeNext(HEADER_APPLICATION_DISCOVERY);
             for (var groupEntry : groups.entrySet()) {
-                DiscoveryStatisticsInPath.Level agg =
-                        new DiscoveryStatisticsInPath.Level();
+                NamedDiscoveryStatistics.Level agg =
+                        new NamedDiscoveryStatistics.Level();
                 for (var discoveryEntry : groupEntry.getValue()) {
                     agg.add(discoveryEntry.aggregate());
                 }
@@ -160,16 +160,16 @@ public class SummaryExport {
     }
 
     private static void exportDatasetApplicationDiscovery(
-            Collection<DiscoveryStatisticsInPath> statistics,
+            Collection<NamedDiscoveryStatistics> statistics,
             File output) throws IOException {
         try (var printWriter = new PrintWriter(output, StandardCharsets.UTF_8);
                 var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
             writer.writeNext(HEADER_DATASET_APPLICATION_DISCOVERY);
             for (var entry : statistics) {
-                DiscoveryStatisticsInPath.Level agg = entry.aggregate();
+                NamedDiscoveryStatistics.Level agg = entry.aggregate();
                 for (var appEntry : agg.pipelinesPerApplication.entrySet()) {
                     String[] row = {
-                            entry.path,
+                            entry.name,
                             entry.dataset.iri,
                             appEntry.getKey().iri,
                             entry.discoveryIri,

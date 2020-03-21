@@ -5,8 +5,9 @@ import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.sample.DataSampleTransformer;
-import com.linkedpipes.discovery.sample.SampleRef;
-import com.linkedpipes.discovery.sample.SampleStore;
+import com.linkedpipes.discovery.sample.store.SampleGroup;
+import com.linkedpipes.discovery.sample.store.SampleRef;
+import com.linkedpipes.discovery.sample.store.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.IsolationLevels;
@@ -57,14 +58,14 @@ public class ExpandNode {
     /**
      * Expand node with data sample, for example root.
      */
-    public void expandWithDataSample(Node node) throws DiscoveryException {
-        List<Statement> dataSample = store.load(node.getDataSampleRef());
+    public void expandRoot(Node node, List<Statement> dataSample) {
         Repository repository = createRepository(dataSample);
         try {
-            expandFromRepository(node, dataSample, repository);
+            expandFromRepository(node, repository);
         } finally {
             repository.shutDown();
         }
+        node.setExpanded(true);
     }
 
     private Repository createRepository(List<Statement> dataSample) {
@@ -75,8 +76,6 @@ public class ExpandNode {
         repository.init();
         try (RepositoryConnection connection = repository.getConnection()) {
             connection.add(dataSample);
-        } catch (RuntimeException ex) {
-            throw new RuntimeException("Can't create repository.", ex);
         } finally {
             createRepositoryTimer.record(
                     Duration.between(start, Instant.now()));
@@ -84,31 +83,17 @@ public class ExpandNode {
         return repository;
     }
 
+    /**
+     * Set applications and next nodes (with transformers).
+     */
     private void expandFromRepository(
-            Node node,
-            List<Statement> dataSample,
-            Repository repository) throws DiscoveryException {
-        if (!filter.isNewNode(node, dataSample)) {
-            // We already see this node, there is no need
-            // to explore it any further.
-            node.setRedundant(true);
-            return;
-        }
-        // Node may have received data sample from the filter.
-        if (node.getDataSampleRef() == null) {
-            SampleRef ref = store.store(dataSample, "data-sample");
-            if (ref == null) {
-                throw new RuntimeException("Store returned null!");
-            }
-            node.setDataSampleRef(ref);
-        }
-        //
+            Node node, Repository repository) {
         node.setApplications(askNode.matchApplications(repository));
         List<Transformer> transformers = askNode.matchTransformer(repository);
-        node.setNext(createNextLevelNode(node, transformers));
+        node.setNext(createNextLevelNodes(node, transformers));
     }
 
-    private List<Node> createNextLevelNode(
+    private List<Node> createNextLevelNodes(
             Node parent, List<Transformer> transformers) {
         return transformers.stream()
                 .map(transformer -> new Node(parent, transformer))
@@ -116,9 +101,6 @@ public class ExpandNode {
     }
 
     public void expand(Node node) throws DiscoveryException {
-        if (node.getDataSampleRef() != null) {
-            expandWithDataSample(node);
-        }
         // We need to create data sample, for this node.
         List<Statement> parentDataSample =
                 store.load(node.getPrevious().getDataSampleRef());
@@ -126,14 +108,24 @@ public class ExpandNode {
         try {
             var dataSample = transformRepository(
                     repository, node.getTransformer());
-            expandFromRepository(node, dataSample, repository);
+            if (filter.isNewNode(node, dataSample)) {
+                SampleRef ref = store.store(dataSample, SampleGroup.NODE);
+                node.setDataSampleRef(ref);
+                expandFromRepository(node, repository);
+            } else {
+                // We already see this node, there is no need
+                // to explore it any further.
+                node.setRedundant(true);
+            }
         } finally {
             repository.shutDown();
         }
+        node.setExpanded(true);
     }
 
     private List<Statement> transformRepository(
-            Repository repository, Transformer transformer) {
+            Repository repository, Transformer transformer)
+            throws DiscoveryException {
         Instant start = Instant.now();
         List<Statement> statements = new ArrayList<>();
         try (var connection = repository.getConnection()) {

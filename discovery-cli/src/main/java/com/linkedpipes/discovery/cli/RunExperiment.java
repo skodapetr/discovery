@@ -3,7 +3,7 @@ package com.linkedpipes.discovery.cli;
 import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.BuilderConfiguration;
-import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
+import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -24,10 +24,10 @@ import java.util.List;
 /**
  * Entry point for running experiments ~ collections of discoveries.
  */
-public class ExperimentRunner {
+public class RunExperiment {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(ExperimentRunner.class);
+            LoggerFactory.getLogger(RunExperiment.class);
 
     private static final IRI HAS_DISCOVERY;
 
@@ -40,7 +40,7 @@ public class ExperimentRunner {
 
     private final BuilderConfiguration configuration;
 
-    public ExperimentRunner(BuilderConfiguration configuration) {
+    public RunExperiment(BuilderConfiguration configuration) {
         this.configuration = configuration;
     }
 
@@ -49,15 +49,15 @@ public class ExperimentRunner {
         List<String> discoveries = getDiscoveries(experiment);
         LOG.info("Collected {} discoveries in experiment {}",
                 discoveries.size(), experiment);
-        List<DiscoveryStatisticsInPath> result = new ArrayList<>();
+        List<NamedDiscoveryStatistics> result = new ArrayList<>();
         for (int index = 0; index < discoveries.size(); ++index) {
             String name = String.format("%03d", index);
             BuilderConfiguration discoveryConfig = configuration.copy();
             discoveryConfig.output = new File(configuration.output, name);
-            DiscoveryRunner runner = new DiscoveryRunner(discoveryConfig);
+            RunDiscovery runner = new RunDiscovery(discoveryConfig);
             var stats = runner.run(discoveries.get(index));
             // Modify path to reflect location in a subdirectory.
-            stats.forEach(item -> item.path = name + "/" + item.path);
+            stats.forEach(item -> item.name = name + "/" + item.name);
             result.addAll(stats);
         }
         SummaryExport.export(result, configuration.output);

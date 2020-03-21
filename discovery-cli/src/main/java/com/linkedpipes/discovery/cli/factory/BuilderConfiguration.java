@@ -10,13 +10,11 @@ public class BuilderConfiguration {
 
     public static final int DEFAULT_MAX_NODE_EXPANSION = 5;
 
-    public int limit;
+    public int levelLimit;
 
     public File output;
 
     public String filter = DEFAULT_FILTER;
-
-    public int threads;
 
     public boolean ignoreIssues = false;
 
@@ -25,6 +23,12 @@ public class BuilderConfiguration {
     public String store = DEFAULT_STORE;
 
     public int maxNodeExpansionTimeSeconds = DEFAULT_MAX_NODE_EXPANSION;
+
+    public boolean resume = false;
+
+    public int discoveryTimeLimit = -1;
+
+    public boolean useStrongGroups = false;
 
     public File reportFile() {
         if (!ignoreIssues) {
@@ -35,13 +39,14 @@ public class BuilderConfiguration {
 
     public BuilderConfiguration copy() {
         BuilderConfiguration result = new BuilderConfiguration();
-        result.limit = limit;
+        result.levelLimit = levelLimit;
         result.output = output;
         result.filter = filter;
-        result.threads = threads;
         result.ignoreIssues = ignoreIssues;
         result.useDataSampleMapping = useDataSampleMapping;
         result.store = store;
+        result.resume = resume;
+        result.discoveryTimeLimit = discoveryTimeLimit;
         return result;
     }
 

@@ -1,17 +1,22 @@
 package com.linkedpipes.discovery.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.sample.DiffStore;
-import com.linkedpipes.discovery.sample.SampleRef;
-import com.linkedpipes.discovery.sample.SampleStore;
+import com.linkedpipes.discovery.sample.DataSampleDiff;
+import com.linkedpipes.discovery.sample.store.SampleGroup;
+import com.linkedpipes.discovery.sample.store.SampleRef;
+import com.linkedpipes.discovery.sample.store.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.eclipse.rdf4j.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -63,6 +68,16 @@ public class DiffBasedFilter implements NodeFilter {
 
     }
 
+    private static class IoContainer {
+
+        public List<String> added = new ArrayList<>();
+
+        public List<String> removed = new ArrayList<>();
+
+        public List<Integer> sizes = new ArrayList<>();
+
+    }
+
     public static final String REF_NAME = "diff";
 
     private static final Logger LOG =
@@ -95,33 +110,52 @@ public class DiffBasedFilter implements NodeFilter {
     }
 
     @Override
-    public void init(Node root) throws DiscoveryException {
-        this.root = new HashSet<>(sampleStore.load(root.getDataSampleRef()));
+    public boolean discoveryWillRun(Discovery context) {
+        Node root = context.getRoot();
+        try {
+            this.root = new HashSet<>(
+                    sampleStore.load(root.getDataSampleRef()));
+        } catch (DiscoveryException ex) {
+            LOG.error("Can't save root data sample.", ex);
+            return false;
+        }
+        return true;
     }
 
     @Override
-    public void addNode(Node node) throws DiscoveryException {
-        DiffRef diff = createNodeDiffRef(node);
+    public boolean nodeDidExpand(Node node) {
+        if (node.isRedundant()) {
+            return true;
+        }
+        DiffRef diff;
+        try {
+            diff = createNodeDiffRef(node);
+        } catch (DiscoveryException ex) {
+            LOG.error("Can't create node diff.", ex);
+            return false;
+        }
         Integer size = diff.size;
         if (!nodesBySize.containsKey(size)) {
             nodesBySize.put(size, new ArrayList<>());
             usageReport.put(size, new UsageReport());
         }
         nodesBySize.get(size).add(diff);
+        return true;
     }
 
+    /// nodeSAMPLE --> NULL
     private DiffRef createNodeDiffRef(Node node) throws DiscoveryException {
         List<Statement> nodeSample = sampleStore.load(node.getDataSampleRef());
-        DiffStore.Diff diff = createNodeDiff(nodeSample);
+        DataSampleDiff diff = createNodeDiff(nodeSample);
         return new DiffRef(
-                sampleStore.store(diff.added, REF_NAME + "_added"),
-                sampleStore.store(diff.removed, REF_NAME + "_remove"),
+                sampleStore.store(diff.added, SampleGroup.FILTER),
+                sampleStore.store(diff.removed, SampleGroup.FILTER),
                 diff.size());
     }
 
-    private DiffStore.Diff createNodeDiff(List<Statement> nodeSample) {
+    private DataSampleDiff createNodeDiff(List<Statement> nodeSample) {
         Instant start = Instant.now();
-        DiffStore.Diff diff = DiffStore.Diff.create(root, nodeSample);
+        DataSampleDiff diff = DataSampleDiff.create(root, nodeSample);
         createDiffNodeTimer.record(Duration.between(start, Instant.now()));
         return diff;
     }
@@ -129,10 +163,10 @@ public class DiffBasedFilter implements NodeFilter {
     @Override
     public boolean isNewNode(Node node, List<Statement> dataSample)
             throws DiscoveryException {
-        DiffStore.Diff diff = createNodeDiff(dataSample);
+        DataSampleDiff diff = createNodeDiff(dataSample);
         UsageReport report = usageReport.get(diff.size());
         for (var visitedRef : getForSize(diff.size())) {
-            DiffStore.Diff visitedDiff = resolve(visitedRef);
+            DataSampleDiff visitedDiff = resolve(visitedRef);
             if (match(diff, visitedDiff, report)) {
                 return false;
             }
@@ -144,16 +178,16 @@ public class DiffBasedFilter implements NodeFilter {
         return nodesBySize.getOrDefault(size, Collections.emptyList());
     }
 
-    private DiffStore.Diff resolve(DiffRef ref) throws DiscoveryException {
-        return DiffStore.Diff.fromDiff(
+    private DataSampleDiff resolve(DiffRef ref) throws DiscoveryException {
+        return DataSampleDiff.fromDiff(
                 sampleStore.load(ref.added),
                 sampleStore.load(ref.removed));
     }
 
     private boolean match(
-            DiffStore.Diff left, DiffStore.Diff right, UsageReport report) {
+            DataSampleDiff left, DataSampleDiff right, UsageReport report) {
         Instant start = Instant.now();
-        boolean result = DiffBasedFilterForDiffStore.match(left, right);
+        boolean result = left.match(right);
         Duration duration = Duration.between(start, Instant.now());
         compareDiffNodesTimer.record(duration);
         // Add information to report.
@@ -166,7 +200,7 @@ public class DiffBasedFilter implements NodeFilter {
     }
 
     @Override
-    public void logAfterLevelFinished() {
+    public boolean levelDidEnd(int level) {
         StringBuilder message = new StringBuilder(
                 "For given size number of data samples:");
         List<Integer> sizes = new ArrayList<>(nodesBySize.keySet());
@@ -186,6 +220,54 @@ public class DiffBasedFilter implements NodeFilter {
                     .append(" ms");
         }
         LOG.debug(message.toString());
+        return true;
+    }
+
+    @Override
+    public void save(File directory, SampleRefToString sampleRefToString)
+            throws IOException {
+        List<String> added = new ArrayList<>();
+        List<String> removed = new ArrayList<>();
+        List<Integer> sizes = new ArrayList<>();
+        for (var entry : nodesBySize.entrySet()) {
+            for (DiffRef diffRef : entry.getValue()) {
+                added.add(sampleRefToString.convert(diffRef.added));
+                removed.add(sampleRefToString.convert(diffRef.removed));
+                sizes.add(diffRef.size);
+            }
+        }
+        IoContainer container = new IoContainer();
+        container.added = added;
+        container.removed = removed;
+        container.sizes = sizes;
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.writeValue(getDataFile(directory), container);
+    }
+
+    private File getDataFile(File directory) {
+        return new File(directory, "rdf4j-isomorphic-diff-filter.json");
+    }
+
+
+    @Override
+    public void load(File directory, StringToSampleRef stringToSampleRef)
+            throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        IoContainer container = objectMapper.readValue(
+                getDataFile(directory),
+                IoContainer.class);
+        for (int index = 0; index < container.added.size(); ++index) {
+            DiffRef diffRef = new DiffRef(
+                    stringToSampleRef.convert(container.added.get(index)),
+                    stringToSampleRef.convert(container.removed.get(index)),
+                    container.sizes.get(index)
+            );
+            if (!nodesBySize.containsKey(diffRef.size)) {
+                nodesBySize.put(diffRef.size, new ArrayList<>());
+                usageReport.put(diffRef.size, new UsageReport());
+            }
+            nodesBySize.get(diffRef.size).add(diffRef);
+        }
     }
 
 }

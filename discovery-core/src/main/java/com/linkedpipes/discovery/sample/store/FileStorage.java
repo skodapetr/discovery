@@ -1,4 +1,4 @@
-package com.linkedpipes.discovery.sample;
+package com.linkedpipes.discovery.sample.store;
 
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
-class FileStorage implements SampleStore {
+public class FileStorage implements SampleStore {
 
     private final Map<SampleRef, File> fileStorage = new HashMap<>();
 
@@ -36,9 +36,9 @@ class FileStorage implements SampleStore {
     }
 
     @Override
-    public SampleRef store(List<Statement> statements, String name)
+    public SampleRef store(List<Statement> statements, SampleGroup group)
             throws DiscoveryException {
-        SampleRef ref = new SampleRef(name);
+        SampleRef ref = new SampleRef(group);
         store(statements, ref);
         return ref;
     }
@@ -49,7 +49,7 @@ class FileStorage implements SampleStore {
         Instant start = Instant.now();
         try {
             File file = Files.createTempFile(
-                    directory.toPath(), ref.name + "-", ".n3").toFile();
+                    directory.toPath(), ref.group + "-", ".n3").toFile();
             RdfAdapter.toFile(statements, file);
             fileStorage.put(ref, file);
         } catch (IOException ex) {
@@ -75,7 +75,7 @@ class FileStorage implements SampleStore {
     }
 
     @Override
-    public Iterator<Entry> iterate() {
+    public Iterator<Entry> iterator() {
         var iterator = fileStorage.entrySet().iterator();
         return new Iterator<>() {
 
@@ -104,8 +104,7 @@ class FileStorage implements SampleStore {
     }
 
     @Override
-    public void cleanUp() {
-        // We not not delete the working directory.
+    public void removeAll() {
         fileStorage.clear();
     }
 

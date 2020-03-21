@@ -1,5 +1,6 @@
 package com.linkedpipes.discovery.sample;
 
+import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -54,7 +55,8 @@ class MapStatements implements DataSampleTransformer {
     }
 
     @Override
-    public List<Statement> transform(List<Statement> statements) {
+    public List<Statement> transform(List<Statement> statements)
+            throws DiscoveryException {
         Instant start = Instant.now();
         addToKnown(statements);
         List<Statement> result = statements.stream()
@@ -64,7 +66,8 @@ class MapStatements implements DataSampleTransformer {
         return result;
     }
 
-    private void addToKnown(List<Statement> statements) {
+    private void addToKnown(List<Statement> statements)
+            throws DiscoveryException {
         for (Statement statement : statements) {
             if (known.containsKey(statement)) {
                 continue;
@@ -78,7 +81,7 @@ class MapStatements implements DataSampleTransformer {
         }
     }
 
-    private Resource mapResource(Resource resource) {
+    private Resource mapResource(Resource resource) throws DiscoveryException {
         if (resource == null) {
             return null;
         }
@@ -87,20 +90,20 @@ class MapStatements implements DataSampleTransformer {
             return result;
         }
         if (resource instanceof BNode) {
-            throw new RuntimeException(
+            throw new DiscoveryException(
                     "We do not support BNodes for mapping.");
         } else if (resource instanceof IRI) {
             IRI iri = valueFactory.createIRI(resource.stringValue());
             knownResources.put(iri, iri);
             return iri;
         } else {
-            throw new RuntimeException(
+            throw new DiscoveryException(
                     "Unsupported resource type for:"
                             + resource.getClass().getName());
         }
     }
 
-    private Value mapValue(Value value) {
+    private Value mapValue(Value value) throws DiscoveryException {
         if (value instanceof Resource) {
             return mapResource((Resource) value);
         }
@@ -115,8 +118,10 @@ class MapStatements implements DataSampleTransformer {
         return value;
     }
 
-    public void logAfterLevelFinished() {
+    @Override
+    public boolean levelDidEnd(int level) {
         LOG.info("Known statements size: {}", known.size());
+        return true;
     }
 
 }

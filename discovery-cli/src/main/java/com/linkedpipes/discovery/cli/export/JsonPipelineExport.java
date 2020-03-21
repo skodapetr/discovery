@@ -3,6 +3,7 @@ package com.linkedpipes.discovery.cli.export;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.linkedpipes.discovery.Discovery;
+import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.node.Node;
 
 import java.io.File;
@@ -57,13 +58,13 @@ public class JsonPipelineExport {
     }
 
     public static void export(
-            Discovery discovery, Node root, File outputFile,
-            NodeToName nodeToName)
+            Discovery discovery, Dataset dataset,
+            Node root, File outputFile, NodeToName nodeToName)
             throws IOException {
         List<Pipeline> pipelines = new ArrayList<>();
         root.accept((node) -> {
-            pipelines.addAll(
-                    nodeToPipelines(discovery, nodeToName, root, node));
+            pipelines.addAll(nodeToPipelines(
+                    discovery, dataset, nodeToName, root, node));
         });
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -74,7 +75,7 @@ public class JsonPipelineExport {
     }
 
     private static List<Pipeline> nodeToPipelines(
-            Discovery discovery, NodeToName nodeToName,
+            Discovery discovery, Dataset dataset, NodeToName nodeToName,
             Node root, Node finalNode) {
         if (finalNode.getApplications().isEmpty()) {
             return Collections.emptyList();
@@ -84,7 +85,7 @@ public class JsonPipelineExport {
         // Root as a data source.
         components.add(new Component(
                 nodeToName.name(root),
-                discovery.getDataset().iri,
+                dataset.iri,
                 "Data source"));
         // Transformers.
         for (Node node : nodes) {

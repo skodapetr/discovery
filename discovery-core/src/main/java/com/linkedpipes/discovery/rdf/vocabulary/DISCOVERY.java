@@ -25,4 +25,9 @@ public final class DISCOVERY {
 
     public static final String HAS_APPLIES_TO = PREFIX + "appliesTo";
 
+    public static final String HAS_TRANSFORMER = PREFIX + "hasTransformer";
+
+    public static final String GROUP_HAS_TRANSFORMER = PREFIX +
+            "discovery/hasTransformer";
+
 }

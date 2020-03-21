@@ -1,4 +1,4 @@
-package com.linkedpipes.discovery.sample;
+package com.linkedpipes.discovery.sample.store;
 
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.MeterNames;
@@ -54,7 +54,7 @@ import java.util.Map;
  * the Maps and ArrayLists. Thus it seems that this store provide
  * no value.
  */
-class BreakupStore implements SampleStore {
+public class BreakupStore implements SampleStore {
 
     private static final Logger LOG =
             LoggerFactory.getLogger(BreakupStore.class);
@@ -96,9 +96,9 @@ class BreakupStore implements SampleStore {
     }
 
     @Override
-    public SampleRef store(List<Statement> statements, String name)
+    public SampleRef store(List<Statement> statements, SampleGroup group)
             throws DiscoveryException {
-        SampleRef ref = new SampleRef(name);
+        SampleRef ref = new SampleRef(group);
         store(statements, ref);
         return ref;
     }
@@ -150,7 +150,7 @@ class BreakupStore implements SampleStore {
         Instant start = Instant.now();
         try {
             File file = Files.createTempFile(
-                    directory.toPath(), ref.name + "-", ".n3").toFile();
+                    directory.toPath(), ref.group + "-", ".n3").toFile();
             try (var stream = new ObjectOutputStream(
                     new FileOutputStream(file))) {
                 stream.writeObject(content);
@@ -212,12 +212,7 @@ class BreakupStore implements SampleStore {
     }
 
     @Override
-    public Iterator<Entry> iterate() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void cleanUp() {
+    public void removeAll() {
         subjectsMap.clear();
         predicatesMap.clear();
         objectsMap.clear();
@@ -228,10 +223,16 @@ class BreakupStore implements SampleStore {
     }
 
     @Override
-    public void logAfterLevelFinished() {
+    public Iterator<Entry> iterator() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean levelDidEnd(int level) {
         LOG.info("Breakup store subject: {} predicate: {} object: {} size: {}",
                 subjectsList.size(), predicatesList.size(), objectsList.size(),
                 fileStorage.size());
+        return true;
     }
 
 }

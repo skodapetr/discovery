@@ -1,7 +1,7 @@
 package com.linkedpipes.discovery.cli.export;
 
 import com.linkedpipes.discovery.node.Node;
-import com.linkedpipes.discovery.sample.SampleStore;
+import com.linkedpipes.discovery.sample.store.SampleStore;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFWriter;

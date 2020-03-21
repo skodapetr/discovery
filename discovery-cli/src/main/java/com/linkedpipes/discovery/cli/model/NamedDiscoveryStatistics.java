@@ -8,15 +8,15 @@ import com.linkedpipes.discovery.SuppressFBWarnings;
  * we also need to remember some identification (path) for the statistics.
  */
 @SuppressFBWarnings(value = {"URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"})
-public class DiscoveryStatisticsInPath extends DiscoveryStatistics {
+public class NamedDiscoveryStatistics extends DiscoveryStatistics {
     
-    public String path;
+    public String name;
     
-    public DiscoveryStatisticsInPath(DiscoveryStatistics source, String path) {
+    public NamedDiscoveryStatistics(DiscoveryStatistics source, String name) {
         this.levels = source.levels;
         this.discoveryIri = source.discoveryIri;
         this.dataset = source.dataset;
-        this.path = path;
+        this.name = name;
     }
 
 }

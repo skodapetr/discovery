@@ -6,6 +6,7 @@ import com.linkedpipes.discovery.rdf.StatementUtils;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import com.linkedpipes.discovery.rdf.vocabulary.DCTERMS;
 import com.linkedpipes.discovery.rdf.vocabulary.DISCOVERY;
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -13,6 +14,7 @@ import org.eclipse.rdf4j.model.Value;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -287,6 +289,29 @@ public final class ModelAdapter {
                     break;
             }
         }
+        return result;
+    }
+
+    public static TransformerGroup loadTransformerGroup(
+            List<Statement> statements, Resource resource) {
+        TransformerGroup result = new TransformerGroup();
+        result.iri = resource.stringValue();
+        for (Statement statement : statements) {
+            if (!resource.equals(statement.getSubject())) {
+                continue;
+            }
+            Value object = statement.getObject();
+            switch (statement.getPredicate().stringValue()) {
+                case DISCOVERY.GROUP_HAS_TRANSFORMER:
+                    if (object instanceof IRI) {
+                        result.transformers.add(object.stringValue());
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        result.transformers.sort(String::compareToIgnoreCase);
         return result;
     }
 

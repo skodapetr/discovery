@@ -1,6 +1,8 @@
 package com.linkedpipes.discovery.cli;
 
 import com.linkedpipes.discovery.Discovery;
+import com.linkedpipes.discovery.DiscoveryException;
+import com.linkedpipes.discovery.DiscoveryRunner;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.GephiExport;
@@ -8,9 +10,11 @@ import com.linkedpipes.discovery.cli.export.JsonPipelineExport;
 import com.linkedpipes.discovery.cli.export.NodeToName;
 import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.BuilderConfiguration;
-import com.linkedpipes.discovery.cli.factory.DiscoveryBuilder;
-import com.linkedpipes.discovery.cli.factory.FromDiscoveryUrl;
-import com.linkedpipes.discovery.cli.model.DiscoveryStatisticsInPath;
+import com.linkedpipes.discovery.cli.factory.DiscoveriesFromUrl;
+import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
+import com.linkedpipes.discovery.io.DiscoveryAdapter;
+import com.linkedpipes.discovery.listeners.CollectStatistics;
+import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.node.Node;
 import com.linkedpipes.discovery.node.ShakeNonExpandedNodes;
 import com.linkedpipes.discovery.node.ShakeRedundantNodes;
@@ -24,28 +28,27 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
-class DiscoveryRunner {
+class RunDiscovery {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(DiscoveryRunner.class);
+            LoggerFactory.getLogger(RunDiscovery.class);
 
     private final BuilderConfiguration configuration;
 
-    public DiscoveryRunner(BuilderConfiguration configuration) {
+    public RunDiscovery(BuilderConfiguration configuration) {
         this.configuration = configuration;
     }
 
-    public List<DiscoveryStatisticsInPath> run(String dataset)
+    public List<NamedDiscoveryStatistics> run(String dataset)
             throws Exception {
         MeterRegistry registry = createMeterRegistry();
         Instant start = Instant.now();
-        var result = runDiscovery(dataset, registry);
+        var result = runDiscoveriesFromUrl(dataset, registry);
         LOG.info("All done in: {} min",
                 Duration.between(start, Instant.now()).toMinutes());
         return result;
@@ -55,36 +58,58 @@ class DiscoveryRunner {
         return new SimpleMeterRegistry();
     }
 
-    private List<DiscoveryStatisticsInPath> runDiscovery(
-            String dataset, MeterRegistry registry) throws Exception {
-        Map<String, String> discoveryNames = new HashMap<>();
-        Function<String, String> nameFactory = (iri) -> {
-            String name = "discovery_"
-                    + String.format("%03d", discoveryNames.size());
-            discoveryNames.put(iri, name);
-            return name;
-        };
-        DiscoveryBuilder builder = new FromDiscoveryUrl(
-                configuration, nameFactory, dataset);
-        List<DiscoveryStatisticsInPath> statistics = new ArrayList<>();
-        for (Discovery discovery : builder.create(registry)) {
-            Node root = discovery.explore(configuration.limit);
-            (new ShakeNonExpandedNodes()).shake(root);
-            (new ShakeRedundantNodes()).shake(root);
-            String name = discoveryNames.get(discovery.getIri());
-            export(discovery, root, new File(configuration.output, name));
-            statistics.add(new DiscoveryStatisticsInPath(
-                    discovery.getStatistics(), name));
-            discovery.cleanUp();
-            // Print statistics during the execution.
-            logMeterRegistry(registry);
-            // TODO Optically delete the working directory here.
-        }
-        SummaryExport.export(statistics, configuration.output);
-        return statistics;
+    private List<NamedDiscoveryStatistics> runDiscoveriesFromUrl(
+            String discoveryUrl, MeterRegistry registry) throws Exception {
+        DiscoveriesFromUrl discoveriesFromUrl = new DiscoveriesFromUrl(
+                configuration, discoveryUrl);
+        List<NamedDiscoveryStatistics> result = new ArrayList<>();
+        discoveriesFromUrl.create(registry,
+                ((name, directory, dataset, discoveryContext) -> {
+                    NamedDiscoveryStatistics stat = runDiscovery(
+                            name, directory, dataset, discoveryContext,
+                            registry);
+                    result.add(stat);
+                }));
+        return result;
     }
 
-    private void export(Discovery discovery, Node root, File output)
+    private NamedDiscoveryStatistics runDiscovery(
+            String name, File directory, Dataset dataset,
+            Discovery discoveryContext, MeterRegistry registry)
+            throws DiscoveryException {
+        CollectStatistics collectStatistics =
+                new CollectStatistics(dataset);
+        discoveryContext.addListener(collectStatistics);
+        DiscoveryRunner discovery = new DiscoveryRunner();
+        discovery.explore(discoveryContext);
+        // Save resume data if we have not searched all.
+        if (!discoveryContext.getQueue().isEmpty()) {
+            DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();
+            LOG.info("Saving resume data.");
+            discoveryAdapter.save(discoveryContext, directory);
+        }
+        Node root = discoveryContext.getRoot();
+        LOG.info("Shaking discovery tree");
+        (new ShakeNonExpandedNodes()).shake(root);
+        (new ShakeRedundantNodes()).shake(root);
+        var namedStatistics = new NamedDiscoveryStatistics(
+                collectStatistics.getStatistics(), name);
+        try {
+            export(
+                    discoveryContext, dataset, root,
+                    namedStatistics, directory);
+        } catch (IOException ex) {
+            throw new DiscoveryException(
+                    "Export failed for: {}", name, ex);
+        }
+        discoveryContext.cleanUp();
+        logMeterRegistry(registry);
+        return namedStatistics;
+    }
+
+    private void export(
+            Discovery discovery, Dataset dataset, Node root,
+            NamedDiscoveryStatistics statistics, File output)
             throws IOException {
         LOG.info("Exporting ...");
         NodeToName nodeToName = new NodeToName(root);
@@ -93,8 +118,9 @@ class DiscoveryRunner {
                 new File(output, "gephi-vertices.csv"),
                 nodeToName, discovery.getApplications());
         JsonPipelineExport.export(
-                discovery, root, new File(output, "pipelines.json"),
+                discovery, dataset, root, new File(output, "pipelines.json"),
                 nodeToName);
+        SummaryExport.export(Collections.singleton(statistics), output);
         DataSamplesExport.export(
                 root, nodeToName,
                 discovery.getStore(),

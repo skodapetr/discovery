@@ -9,7 +9,8 @@ import com.linkedpipes.discovery.model.ModelAdapter;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import com.linkedpipes.discovery.sample.DataSampleTransformer;
-import com.linkedpipes.discovery.sample.SampleStore;
+import com.linkedpipes.discovery.sample.store.SampleGroup;
+import com.linkedpipes.discovery.sample.store.SampleStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ public class TextExpandNode {
         List<Application> applications = Arrays.asList(
                 ModelAdapter.loadApplication(TestResources.asStatements(
                         "pipeline/application/dcterms.ttl")));
-        SampleStore sampleStore = SampleStore.memoryStore(true);
+        SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
                 sampleStore,
                 new NoFilter(),
@@ -44,16 +45,15 @@ public class TextExpandNode {
                 "NKOD",
                 TestResources.file("pipeline/dataset/nkod"));
 
-        Node node = new Node(Collections.singletonList(dataset));
-        node.setDataSampleRef(sampleStore.store(dataset.sample, "root"));
-        expander.expandWithDataSample(node);
+        Node root = new Node();
+        expander.expandRoot(root, dataset.sample);
 
-        Assertions.assertEquals(0, node.getNext().size());
-        Assertions.assertEquals(1, node.getApplications().size());
+        Assertions.assertEquals(0, root.getNext().size());
+        Assertions.assertEquals(1, root.getApplications().size());
         Assertions.assertEquals(
                 "https://discovery.linkedpipes.com/resource/application/"
                         + "dcterms/template",
-                node.getApplications().get(0).iri);
+                root.getApplications().get(0).iri);
     }
 
     @Test
@@ -70,7 +70,7 @@ public class TextExpandNode {
                         "pipeline/transformer/"
                                 + "dcterms-issued-to-dcterms-date.ttl")));
 
-        SampleStore sampleStore = SampleStore.memoryStore(true);
+        SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
                 sampleStore,
                 new NoFilter(),
@@ -84,9 +84,10 @@ public class TextExpandNode {
                 "NKOD",
                 TestResources.file("pipeline/dataset/nkod"));
 
-        Node root = new Node(Collections.singletonList(dataset));
-        root.setDataSampleRef(sampleStore.store(dataset.sample, "root"));
-        expander.expandWithDataSample(root);
+        Node root = new Node();
+        expander.expandRoot(root, dataset.sample);
+        root.setDataSampleRef(
+                sampleStore.store(dataset.sample, SampleGroup.ROOT));
 
         Assertions.assertEquals(1, root.getNext().size());
         Assertions.assertEquals(1, root.getApplications().size());

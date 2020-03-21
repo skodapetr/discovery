@@ -5,8 +5,6 @@ import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.rdf.LangString;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,14 +33,9 @@ public class DiscoveryStatistics {
     public static class Level {
 
         /**
-         * Time when execution of this level started.
+         * Duration spend on discovery.
          */
-        public Instant start = Instant.now();
-
-        /**
-         * Time when execution of this level finished.
-         */
-        public Instant end;
+        public int durationInSeconds;
 
         /**
          * Starting from zero (root) denote the level in the exploration tree.
@@ -93,12 +86,7 @@ public class DiscoveryStatistics {
         public Set<Transformer> transformers = new HashSet<>();
 
         public void add(Level other) {
-            if (start == null || other.start.isBefore(start)) {
-                start = other.start;
-            }
-            if (end == null || other.end.isAfter(end)) {
-                end = other.end;
-            }
+            durationInSeconds += other.durationInSeconds;
             startNodes = 0;
             expandedNodes += other.expandedNodes;
             filteredNodes += other.filteredNodes;
@@ -123,10 +111,6 @@ public class DiscoveryStatistics {
                     .stream()
                     .reduce(Integer::sum)
                     .orElseGet(() -> 0);
-        }
-
-        public long durationInSeconds() {
-            return Duration.between(start, end).toSeconds();
         }
 
     }

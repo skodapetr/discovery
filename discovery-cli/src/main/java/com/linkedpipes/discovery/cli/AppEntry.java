@@ -27,13 +27,13 @@ public class AppEntry {
     public void run(String[] args) throws Exception {
         CommandLine cmd = parseArgs(args);
         BuilderConfiguration configuration = loadConfiguration(cmd);
-        if (cmd.hasOption("experiment")) {
+        if (cmd.hasOption("Experiment")) {
             // An experiment is handled by a different class.
-            ExperimentRunner runner = new ExperimentRunner(configuration);
-            runner.run(cmd.getOptionValue("experiment"));
-        } else if (cmd.hasOption("discovery")) {
-            DiscoveryRunner runner = new DiscoveryRunner(configuration);
-            runner.run(cmd.getOptionValue("discovery"));
+            RunExperiment runner = new RunExperiment(configuration);
+            runner.run(cmd.getOptionValue("Experiment"));
+        } else if (cmd.hasOption("Discovery")) {
+            RunDiscovery runner = new RunDiscovery(configuration);
+            runner.run(cmd.getOptionValue("Discovery"));
         } else {
             System.out.println(
                     "Either 'discovery' or 'experiment' must be set.");
@@ -46,35 +46,35 @@ public class AppEntry {
         Options options = new Options();
 
         Option experiment = new Option(
-                "e", "experiment", true, "Url of an experiment to run.");
+                "e", "Experiment", true, "Url of an experiment to run.");
         experiment.setRequired(false);
         options.addOption(experiment);
 
         Option discovery = new Option(
-                "d", "discovery", true, "Url of a discovery to run.");
+                "d", "Discovery", true, "Url of a discovery to run.");
         discovery.setRequired(false);
         options.addOption(discovery);
 
         Option output = new Option(
-                "o", "output", true, "Path to output directory");
+                "o", "Output", true, "Path to output directory");
         output.setRequired(true);
         options.addOption(output);
 
         Option filter = new Option(
-                null, "filter", true, "Filter strategy. Values: "
+                null, "Filter", true, "Filter strategy. Values: "
                 + "'no-filter', 'isomorphic', 'diff'");
         filter.setRequired(false);
         options.addOption(filter);
 
         Option limit = new Option(
-                null, "limit", true, "Iteration limit.");
+                null, "LevelLimit", true, "Iteration limit.");
         limit.setRequired(false);
         options.addOption(limit);
 
-        Option threads = new Option(
-                null, "threads", true, "Number of threads to use.");
-        limit.setRequired(false);
-        options.addOption(threads);
+        Option strongGroups = new Option(
+                null, "StrongGroups", false, "Use transformer groups.");
+        strongGroups.setRequired(false);
+        options.addOption(strongGroups);
 
         Option ignoreDiscoveryIssues = new Option(
                 null, "IHaveBadDiscoveryDefinition", false,
@@ -85,15 +85,27 @@ public class AppEntry {
         Option useMapping = new Option(
                 null, "UseMapping", false,
                 "Use statements mapping, can reduce memory "
-                        + "usage in exchange for extra CPU load..");
+                        + "usage in exchange for extra CPU load.");
         useMapping.setRequired(false);
         options.addOption(useMapping);
 
         Option store = new Option(
-                null, "store", true, "Store strategy. Values: "
+                null, "Store", true, "Store strategy. Values: "
                 + "'memory', 'diff', 'disk', 'cache-memory-disk'");
         store.setRequired(false);
         options.addOption(store);
+
+        Option resume = new Option(
+                null, "Resume", false,
+                "If used and output exists try to resume execution.");
+        resume.setRequired(false);
+        options.addOption(resume);
+
+        Option discoveryLimit = new Option(
+                null, "DiscoveryTimeLimit", true,
+                "Time limit in minutes on a single discovery run.");
+        discoveryLimit.setRequired(false);
+        options.addOption(discoveryLimit);
 
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
@@ -110,20 +122,27 @@ public class AppEntry {
 
     private BuilderConfiguration loadConfiguration(CommandLine cmd) {
         BuilderConfiguration configuration = new BuilderConfiguration();
-        configuration.limit =
-                Integer.parseInt(cmd.getOptionValue("limit", "-1"));
-        configuration.output = new File(cmd.getOptionValue("output"));
+        configuration.levelLimit =
+                Integer.parseInt(cmd.getOptionValue("LevelLimit", "-1"));
+        configuration.output = new File(cmd.getOptionValue("Output"));
         configuration.filter =
-                cmd.getOptionValue("filter", DEFAULT_FILTER_STRATEGY);
-        configuration.threads =
-                Integer.parseInt(cmd.getOptionValue("threads", "1"));
+                cmd.getOptionValue("Filter", DEFAULT_FILTER_STRATEGY);
         configuration.store =
-                cmd.getOptionValue("store", DEFAULT_FILTER_STRATEGY);
+                cmd.getOptionValue("Store", DEFAULT_FILTER_STRATEGY);
+        configuration.discoveryTimeLimit =
+                Integer.parseInt(
+                        cmd.getOptionValue("DiscoveryTimeLimit", "-1"));
         if (cmd.hasOption("IHaveBadDiscoveryDefinition")) {
             configuration.ignoreIssues = true;
         }
         if (cmd.hasOption("UseMapping")) {
             configuration.useDataSampleMapping = true;
+        }
+        if (cmd.hasOption("Resume")) {
+            configuration.resume = true;
+        }
+        if (cmd.hasOption("StrongGroups")) {
+            configuration.useStrongGroups = true;
         }
         return configuration;
     }
