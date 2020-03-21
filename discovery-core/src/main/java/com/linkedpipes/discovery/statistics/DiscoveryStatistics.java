@@ -1,5 +1,6 @@
-package com.linkedpipes.discovery;
+package com.linkedpipes.discovery.statistics;
 
+import com.linkedpipes.discovery.SuppressFBWarnings;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
@@ -22,6 +23,11 @@ public class DiscoveryStatistics {
         public final String iri;
 
         public final LangString title;
+
+        public DatasetRef(String iri, LangString title) {
+            this.iri = iri;
+            this.title = title;
+        }
 
         public DatasetRef(Dataset dataset) {
             iri = dataset.iri;

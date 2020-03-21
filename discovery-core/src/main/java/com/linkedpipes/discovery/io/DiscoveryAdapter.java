@@ -44,9 +44,9 @@ public class DiscoveryAdapter {
 
     }
 
-    public void save(Discovery context, File directory)
+    public void saveForResume(Discovery context, File directory)
             throws DiscoveryException {
-        directory = new File(directory, "resume-data");
+        directory = getResumeDirectory(directory);
         directory.mkdirs();
         try {
             var refMap = saveStore(context.getStore(), directory);
@@ -136,9 +136,25 @@ public class DiscoveryAdapter {
         return new File(directory, "nodes-queue.json");
     }
 
-    public void load(File directory, Discovery context)
+    private File getResumeDirectory(File directory) {
+        return new File(directory, "resume-data");
+    }
+
+    /**
+     * Can't be used to resume the execution.
+     */
+    public void saveFinishedDiscovery(Discovery context, File directory)
             throws DiscoveryException {
-        directory = new File(directory, "resume-data");
+        try {
+            saveNodes(context, directory, new HashMap<>());
+        } catch (IOException ex) {
+            throw new DiscoveryException("Can't save nodes.", ex);
+        }
+    }
+
+    public void loadFromResume(File directory, Discovery context)
+            throws DiscoveryException {
+        directory = getResumeDirectory(directory);
         try {
             var refMap = loadStore(context.getStore(), directory);
             loadFilter(context, directory, refMap);
@@ -233,6 +249,19 @@ public class DiscoveryAdapter {
             }
         }
         return null;
+    }
+
+    public void loadFinishedDiscovery(Discovery context, File directory)
+            throws DiscoveryException {
+        try {
+            loadNodes(context, directory, new HashMap<>());
+        } catch (IOException ex) {
+            throw new DiscoveryException("Can't load nodes.", ex);
+        }
+    }
+
+    public boolean isDiscoveryFinishDataSaved(File directory) {
+        return getNodesFile(directory).exists();
     }
 
 }

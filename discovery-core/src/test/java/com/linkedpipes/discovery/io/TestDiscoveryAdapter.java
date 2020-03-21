@@ -41,7 +41,7 @@ public class TestDiscoveryAdapter {
         File directory = Files.createTempDirectory("discovery-test-").toFile();
         try {
             DiscoveryAdapter adapter = new DiscoveryAdapter();
-            adapter.save(tillLevelOne, directory);
+            adapter.saveForResume(tillLevelOne, directory);
 
             DiscoveryBuilder continueBuilder = createContext();
             continueContext = continueBuilder.resume(directory);

@@ -3,6 +3,7 @@ package com.linkedpipes.discovery.cli;
 import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.DiscoveryRunner;
+import com.linkedpipes.discovery.statistics.DiscoveryStatisticsAdapter;
 import com.linkedpipes.discovery.MeterNames;
 import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.GephiExport;
@@ -13,7 +14,7 @@ import com.linkedpipes.discovery.cli.factory.BuilderConfiguration;
 import com.linkedpipes.discovery.cli.factory.DiscoveriesFromUrl;
 import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
 import com.linkedpipes.discovery.io.DiscoveryAdapter;
-import com.linkedpipes.discovery.listeners.CollectStatistics;
+import com.linkedpipes.discovery.statistics.CollectStatistics;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.node.Node;
 import com.linkedpipes.discovery.node.ShakeNonExpandedNodes;
@@ -74,20 +75,35 @@ class RunDiscovery {
 
     private NamedDiscoveryStatistics runDiscovery(
             String name, File directory, Dataset dataset,
-            Discovery discoveryContext, MeterRegistry registry)
+            Discovery discovery, MeterRegistry registry)
             throws DiscoveryException {
+        DiscoveryStatisticsAdapter statisticsAdapter =
+                new DiscoveryStatisticsAdapter();
+        if (configuration.resume
+                && statisticsAdapter.statisticsSaved(directory)) {
+            // The execution has already been finished, we just load the
+            // statistics.
+            var statistics = statisticsAdapter.load(discovery, directory);
+            return new NamedDiscoveryStatistics(statistics, name);
+        }
+        //
         CollectStatistics collectStatistics =
                 new CollectStatistics(dataset);
-        discoveryContext.addListener(collectStatistics);
-        DiscoveryRunner discovery = new DiscoveryRunner();
-        discovery.explore(discoveryContext);
+        discovery.addListener(collectStatistics);
+        DiscoveryRunner discoveryRunner = new DiscoveryRunner();
+        discoveryRunner.explore(discovery);
         // Save resume data if we have not searched all.
-        if (!discoveryContext.getQueue().isEmpty()) {
-            DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();
+        DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();
+        if (!discovery.getQueue().isEmpty()) {
             LOG.info("Saving resume data.");
-            discoveryAdapter.save(discoveryContext, directory);
+            discoveryAdapter.saveForResume(discovery, directory);
+        } else {
+            LOG.info("Saving exploration results.");
+            discoveryAdapter.saveFinishedDiscovery(discovery, directory);
+            statisticsAdapter.save(
+                    collectStatistics.getStatistics(), directory);
         }
-        Node root = discoveryContext.getRoot();
+        Node root = discovery.getRoot();
         LOG.info("Shaking discovery tree");
         (new ShakeNonExpandedNodes()).shake(root);
         (new ShakeRedundantNodes()).shake(root);
@@ -95,13 +111,13 @@ class RunDiscovery {
                 collectStatistics.getStatistics(), name);
         try {
             export(
-                    discoveryContext, dataset, root,
+                    discovery, dataset, root,
                     namedStatistics, directory);
         } catch (IOException ex) {
             throw new DiscoveryException(
                     "Export failed for: {}", name, ex);
         }
-        discoveryContext.cleanUp();
+        discovery.cleanUp();
         logMeterRegistry(registry);
         return namedStatistics;
     }

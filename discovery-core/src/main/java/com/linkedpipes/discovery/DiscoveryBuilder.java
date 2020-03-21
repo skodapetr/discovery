@@ -168,7 +168,7 @@ public class DiscoveryBuilder {
                 registry);
         addListeners(result);
         DiscoveryAdapter adapter = new DiscoveryAdapter();
-        adapter.load(directory, result);
+        adapter.loadFromResume(directory, result);
         return result;
     }
 

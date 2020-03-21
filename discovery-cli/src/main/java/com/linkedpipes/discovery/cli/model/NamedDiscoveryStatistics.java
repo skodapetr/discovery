@@ -1,6 +1,6 @@
 package com.linkedpipes.discovery.cli.model;
 
-import com.linkedpipes.discovery.DiscoveryStatistics;
+import com.linkedpipes.discovery.statistics.DiscoveryStatistics;
 import com.linkedpipes.discovery.SuppressFBWarnings;
 
 /**

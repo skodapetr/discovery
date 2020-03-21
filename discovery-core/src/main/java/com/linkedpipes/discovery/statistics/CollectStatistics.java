@@ -1,8 +1,7 @@
-package com.linkedpipes.discovery.listeners;
+package com.linkedpipes.discovery.statistics;
 
 import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.DiscoveryListener;
-import com.linkedpipes.discovery.DiscoveryStatistics;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.node.Node;
