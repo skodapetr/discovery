@@ -119,6 +119,7 @@ public class DiscoveryAdapter {
             container.expanded = node.isExpanded();
             nodes.add(container);
         });
+        directory.mkdirs();
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.writeValue(getNodesFile(directory), nodes);
         List<String> queue = context.getQueue().stream()
@@ -145,6 +146,7 @@ public class DiscoveryAdapter {
      */
     public void saveFinishedDiscovery(Discovery context, File directory)
             throws DiscoveryException {
+        directory.mkdirs();
         try {
             saveNodes(context, directory, new HashMap<>());
         } catch (IOException ex) {
