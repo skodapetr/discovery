@@ -132,7 +132,8 @@ class RunDiscovery {
         GephiExport.export(root,
                 new File(output, "gephi-edges.csv"),
                 new File(output, "gephi-vertices.csv"),
-                nodeToName, discovery.getApplications());
+                nodeToName, discovery.getApplications(),
+                discovery.getGroups());
         JsonPipelineExport.export(
                 discovery, dataset, root, new File(output, "pipelines.json"),
                 nodeToName);

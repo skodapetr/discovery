@@ -3,6 +3,7 @@ package com.linkedpipes.discovery;
 import com.linkedpipes.discovery.filter.NodeFilter;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.model.TransformerGroup;
 import com.linkedpipes.discovery.node.Node;
 import com.linkedpipes.discovery.sample.DataSampleTransformer;
 import com.linkedpipes.discovery.sample.store.SampleStore;
@@ -31,6 +32,8 @@ public class Discovery {
 
     private final List<Transformer> transformers;
 
+    private final List<TransformerGroup> groups;
+
     private final SampleStore store;
 
     private final NodeFilter filter;
@@ -42,12 +45,14 @@ public class Discovery {
     public Discovery(
             String iri,
             List<Application> applications, List<Transformer> transformers,
+            List<TransformerGroup> groups,
             SampleStore store, NodeFilter filter,
             DataSampleTransformer dataSampleTransformer,
             MeterRegistry registry) {
         this.iri = iri;
         this.applications = applications;
         this.transformers = transformers;
+        this.groups = groups;
         this.store = store;
         this.filter = filter;
         this.dataSampleTransformer = dataSampleTransformer;
@@ -79,11 +84,15 @@ public class Discovery {
     }
 
     public List<Application> getApplications() {
-        return applications;
+        return Collections.unmodifiableList(applications);
     }
 
     public List<Transformer> getTransformers() {
-        return transformers;
+        return Collections.unmodifiableList(transformers);
+    }
+
+    public List<TransformerGroup> getGroups() {
+        return Collections.unmodifiableList(groups);
     }
 
     public SampleStore getStore() {

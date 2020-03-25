@@ -26,10 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-class LoadRemoteDefinition {
+public class RemoteDefinition {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(LoadRemoteDefinition.class);
+            LoggerFactory.getLogger(RemoteDefinition.class);
 
     private static final IRI HAS_TEMPLATE;
 
@@ -73,7 +73,7 @@ class LoadRemoteDefinition {
 
     private List<TransformerGroup> groups = new ArrayList<>();
 
-    public LoadRemoteDefinition(
+    public RemoteDefinition(
             BuilderConfiguration configuration, String discoveryUrl) {
         this.configuration = configuration;
         this.discoveryUrl = discoveryUrl;

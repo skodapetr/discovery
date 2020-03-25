@@ -8,6 +8,7 @@ import com.linkedpipes.discovery.listeners.LimitByTime;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.model.Transformer;
+import com.linkedpipes.discovery.model.TransformerGroup;
 import com.linkedpipes.discovery.node.AskNode;
 import com.linkedpipes.discovery.node.ExpandNode;
 import com.linkedpipes.discovery.node.Node;
@@ -31,6 +32,8 @@ public class DiscoveryBuilder {
 
     private final List<Transformer> transformers;
 
+    private final List<TransformerGroup> groups;
+
     private Dataset dataset;
 
     private SampleStore store;
@@ -49,10 +52,12 @@ public class DiscoveryBuilder {
 
     public DiscoveryBuilder(
             String iri,
-            List<Application> applications, List<Transformer> transformers) {
+            List<Application> applications, List<Transformer> transformers,
+            List<TransformerGroup> groups) {
         this.iri = iri;
         this.applications = applications;
         this.transformers = transformers;
+        this.groups = groups;
     }
 
     public void setLevelLimit(int levelLimit) {
@@ -91,7 +96,7 @@ public class DiscoveryBuilder {
     public Discovery createNew() throws DiscoveryException {
         validate();
         Discovery result = new Discovery(
-                iri, applications, transformers,
+                iri, applications, transformers, groups,
                 store, filter, dataSampleTransformer,
                 registry);
         addListeners(result);
@@ -163,7 +168,7 @@ public class DiscoveryBuilder {
     public Discovery resume(File directory) throws DiscoveryException {
         validate();
         Discovery result = new Discovery(
-                iri, applications, transformers,
+                iri, applications, transformers, groups,
                 store, filter, dataSampleTransformer,
                 registry);
         addListeners(result);

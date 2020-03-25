@@ -149,9 +149,14 @@ public class DiscoveryAdapter {
         directory.mkdirs();
         try {
             saveNodes(context, directory, new HashMap<>());
+            getFinishStatusFile(directory).createNewFile();
         } catch (IOException ex) {
             throw new DiscoveryException("Can't save nodes.", ex);
         }
+    }
+
+    private File getFinishStatusFile(File directory) {
+        return new File(directory, "discovery-finished");
     }
 
     public void loadFromResume(File directory, Discovery context)
@@ -253,17 +258,8 @@ public class DiscoveryAdapter {
         return null;
     }
 
-    public void loadFinishedDiscovery(Discovery context, File directory)
-            throws DiscoveryException {
-        try {
-            loadNodes(context, directory, new HashMap<>());
-        } catch (IOException ex) {
-            throw new DiscoveryException("Can't load nodes.", ex);
-        }
-    }
-
     public boolean isDiscoveryFinishDataSaved(File directory) {
-        return getNodesFile(directory).exists();
+        return getFinishStatusFile(directory).exists();
     }
 
 }

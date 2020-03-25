@@ -25,10 +25,9 @@ public class DiscoveriesFromUrl {
     public interface Handler {
 
         void handle(
-                String name,
-                File directory,
-                Dataset dataset,
-                Discovery discoveryContext) throws DiscoveryException;
+                String name, File directory, Dataset dataset,
+                Discovery discoveryContext)
+                throws DiscoveryException;
 
     }
 
@@ -44,8 +43,8 @@ public class DiscoveriesFromUrl {
 
     public void create(MeterRegistry registry, Handler handler)
             throws Exception {
-        LoadRemoteDefinition definition =
-                new LoadRemoteDefinition(configuration, discoveryUrl);
+        RemoteDefinition definition =
+                new RemoteDefinition(configuration, discoveryUrl);
         definition.load();
         List<Dataset> datasets = definition.getDatasets();
         // We force same ordering to allow use of resume.
@@ -65,13 +64,14 @@ public class DiscoveriesFromUrl {
 
     private Discovery createDiscovery(
             String iri, File directory,
-            Dataset dataset, LoadRemoteDefinition definition,
+            Dataset dataset, RemoteDefinition definition,
             MeterRegistry registry) throws DiscoveryException {
         boolean canResume = directory.exists();
         DiscoveryBuilder builder = new DiscoveryBuilder(
                 iri,
                 definition.getApplications(),
-                definition.getTransformers());
+                definition.getTransformers(),
+                definition.getGroups());
 
         if (configuration.levelLimit > -1) {
             builder.setLevelLimit(configuration.levelLimit);
@@ -160,11 +160,13 @@ public class DiscoveriesFromUrl {
     }
 
     protected void addOptionalListeners(
-            LoadRemoteDefinition definition, Discovery discovery) {
+            RemoteDefinition definition, Discovery discovery) {
         if (configuration.useStrongGroups) {
             PruneByStrongGroup pruneByGroup =
                     new PruneByStrongGroup(definition.getGroups());
             discovery.addListener(pruneByGroup);
+            // We also need to apply this on the the root.
+            pruneByGroup.nodeDidExpand(discovery.getRoot());
         }
     }
 

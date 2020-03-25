@@ -1,6 +1,7 @@
 package com.linkedpipes.discovery.cli.export;
 
 import com.linkedpipes.discovery.model.Application;
+import com.linkedpipes.discovery.model.TransformerGroup;
 import com.linkedpipes.discovery.node.Node;
 import com.opencsv.CSVWriter;
 
@@ -42,14 +43,17 @@ public final class GephiExport {
 
         private List<Boolean> applications;
 
+        private String group;
+
         private boolean redundant;
 
         public Vertex(
                 String id, int level, List<Boolean> applications,
-                boolean redundant) {
+                String group, boolean redundant) {
             this.id = id;
             this.level = level;
             this.applications = applications;
+            this.group = group;
             this.redundant = redundant;
         }
 
@@ -60,7 +64,8 @@ public final class GephiExport {
     public static void export(
             Node root, File edgeFile, File verticesFile,
             NodeToName nodeToName,
-            List<Application> applications)
+            List<Application> applications,
+            List<TransformerGroup> groups)
             throws IOException {
         List<Edge> edges = new ArrayList<>();
         List<Vertex> vertices = new ArrayList<>();
@@ -76,6 +81,7 @@ public final class GephiExport {
                     nodeToName.name(node),
                     node.getLevel(),
                     collectApps(node, applications),
+                    getGroup(node, groups),
                     node.isRedundant());
             vertexMap.put(node, vertex);
             vertices.add(vertex);
@@ -97,6 +103,19 @@ public final class GephiExport {
                 .collect(Collectors.toList());
     }
 
+    private static String getGroup(Node node, List<TransformerGroup> groups) {
+        if (node.getTransformer() == null) {
+            return "";
+        }
+        String transformer = node.getTransformer().iri;
+        for (TransformerGroup group : groups) {
+            if (group.transformers.contains(transformer)) {
+                return group.iri;
+            }
+        }
+        return "";
+    }
+
     private static void writeEdgeFile(List<Edge> edges, File file)
             throws IOException {
         file.getParentFile().mkdirs();
@@ -115,11 +134,12 @@ public final class GephiExport {
     }
 
     private static void writeVerticesFile(
-            List<Vertex> vertices, File file, List<Application> applications)
+            List<Vertex> vertices, File file,
+            List<Application> applications)
             throws IOException {
         file.getParentFile().mkdirs();
         List<String> header = new ArrayList<>();
-        header.addAll(Arrays.asList("id", "level", "redundant"));
+        header.addAll(Arrays.asList("id", "level", "redundant", "group"));
         for (Application application : applications) {
             header.add(application.title.asString());
         }
@@ -132,6 +152,7 @@ public final class GephiExport {
                 row.add(vertex.id);
                 row.add(Integer.toString(vertex.level));
                 row.add(vertex.redundant ? "1" : "0");
+                row.add(vertex.group);
                 for (Boolean app : vertex.applications) {
                     row.add(app ? "1" : "0");
                 }

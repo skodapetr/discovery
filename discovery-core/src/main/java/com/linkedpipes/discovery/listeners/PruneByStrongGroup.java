@@ -52,7 +52,7 @@ public class PruneByStrongGroup implements DiscoveryListener {
             nodesByGroup.get(group).add(next);
         }
         TransformerGroup nodeGroup = getGroup(node);
-        if (nodesByGroup.containsKey(nodeGroup)) {
+        if (nodeGroup != null && nodesByGroup.containsKey(nodeGroup)) {
             // Disable all other and preserve only one from the group.
             node.getNext().forEach(next -> next.setRedundant(true));
             processGroup(nodeGroup, nodesByGroup.get(nodeGroup));
@@ -66,6 +66,9 @@ public class PruneByStrongGroup implements DiscoveryListener {
     }
 
     private TransformerGroup getGroup(Node node) {
+        if (node.getTransformer() == null) {
+            return null;
+        }
         for (TransformerGroup group : groups) {
             if (group.transformers.contains(node.getTransformer().iri)) {
                 return group;
@@ -76,7 +79,8 @@ public class PruneByStrongGroup implements DiscoveryListener {
 
     private void processGroup(TransformerGroup group, List<Node> nodes) {
         List<Integer> indices = nodes.stream()
-                .map(node -> group.transformers.indexOf(node))
+                .map(node -> group.transformers.indexOf(
+                        node.getTransformer().iri))
                 .collect(Collectors.toList());
         Integer min = Collections.min(indices);
         for (int index = 0; index < nodes.size(); ++index) {
