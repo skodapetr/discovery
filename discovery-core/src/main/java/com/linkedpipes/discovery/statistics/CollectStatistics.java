@@ -116,7 +116,7 @@ public class CollectStatistics implements DiscoveryListener {
         levelStatistics.level = levelIndex;
         // We know that this is a start of a new level,
         // so all in the queue is content of this level.
-        levelStatistics.startNodes = context.getQueue().size() + 1;
+        levelStatistics.startNodes = context.getQueue().size();
         statistics.levels.add(levelStatistics);
     }
 
