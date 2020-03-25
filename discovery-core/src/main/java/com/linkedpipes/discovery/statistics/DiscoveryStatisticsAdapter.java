@@ -66,7 +66,7 @@ public class DiscoveryStatisticsAdapter {
             }
 
             ObjectNode pipelines = objectMapper.createObjectNode();
-            levelNode.set("pipelines", transformers);
+            levelNode.set("pipelines", pipelines);
             for (var pipeline : level.pipelinesPerApplication.entrySet()) {
                 pipelines.put(pipeline.getKey().iri, pipeline.getValue());
             }
