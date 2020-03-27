@@ -22,7 +22,7 @@ public class CollectStatistics implements DiscoveryListener {
 
     private static final int MB = 2014 * 1024;
 
-    private final DiscoveryStatistics statistics;
+    private DiscoveryStatistics statistics = null;
 
     /**
      * Shortcut for current level.
@@ -37,36 +37,62 @@ public class CollectStatistics implements DiscoveryListener {
 
     private Discovery context;
 
+    private final DiscoveryStatistics.DatasetRef dataset;
+
     public CollectStatistics(Dataset dataset) {
-        this.statistics = new DiscoveryStatistics();
-        statistics.dataset = new DiscoveryStatistics.DatasetRef(dataset);
+        this.dataset = new DiscoveryStatistics.DatasetRef(dataset);
+    }
+
+    public void resume(DiscoveryStatistics statistics) {
+        this.statistics = statistics;
+        this.levelStatistics = statistics.levels.get(
+                statistics.levels.size() - 1);
     }
 
     @Override
     public boolean discoveryWillRun(Discovery context) {
-        int level = 0;
-        Node node = context.getQueue().peek();
-        if (node != null) {
-            level = node.getLevel();
+        if (this.statistics != null) {
+            return true;
         }
+        this.statistics = new DiscoveryStatistics();
+        this.statistics.dataset = dataset;
         this.context = context;
-        statistics.discoveryIri = context.getIri();
-        levelStatistics = new DiscoveryStatistics.Level();
-        levelStatistics.level = level;
-        levelStatistics.startNodes = 1; // We start with just the root.
-        statistics.levels.add(levelStatistics);
-        lastLevelStart = Instant.now();
+        addLevelForRoot(context.getRoot());
+        prepareStatisticsForNewLevel();
         return true;
     }
 
-    @Override
-    public void discoveryDidRun() {
+    private void addLevelForRoot(Node root) {
+        DiscoveryStatistics.Level level = new DiscoveryStatistics.Level();
+        level.level = 0;
+        level.durationInMilliSeconds = 0;
+        level.startNodes = 1;
+        level.expandedNodes = 1;
+        level.filteredNodes = 0;
+        for (Application application : root.getApplications()) {
+            level.applications.add(application);
+            level.pipelinesPerApplication.put(application, 1);
+        }
+        level.nextLevel = root.getNext().size();
+        this.levelStatistics = level;
+        this.statistics.levels.add(level);
+    }
 
+    private void prepareStatisticsForNewLevel() {
+        lastLevelStart = Instant.now();
+        int levelIndex = levelStatistics.level + 1;
+        levelStatistics = new DiscoveryStatistics.Level();
+        levelStatistics.level = levelIndex;
+        // We know that this is a start of a new level,
+        // so all in the queue is content of this level.
+        levelStatistics.startNodes = context.getQueue().size();
+        statistics.levels.add(levelStatistics);
     }
 
     @Override
     public boolean levelDidEnd(int level) {
         logAfterLevel();
+        finalizeCurrentLevel();
         prepareStatisticsForNewLevel();
         return true;
     }
@@ -107,17 +133,9 @@ public class CollectStatistics implements DiscoveryListener {
         return nemApplicationCount;
     }
 
-    private void prepareStatisticsForNewLevel() {
-        levelStatistics.durationInSeconds +=
-                Duration.between(lastLevelStart, Instant.now()).toSeconds();
-        lastLevelStart = Instant.now();
-        int levelIndex = levelStatistics.level + 1;
-        levelStatistics = new DiscoveryStatistics.Level();
-        levelStatistics.level = levelIndex;
-        // We know that this is a start of a new level,
-        // so all in the queue is content of this level.
-        levelStatistics.startNodes = context.getQueue().size();
-        statistics.levels.add(levelStatistics);
+    private void finalizeCurrentLevel() {
+        levelStatistics.durationInMilliSeconds +=
+                Duration.between(lastLevelStart, Instant.now()).toMillis();
     }
 
     @Override

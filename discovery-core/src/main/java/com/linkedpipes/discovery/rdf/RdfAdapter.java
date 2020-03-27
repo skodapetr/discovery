@@ -20,6 +20,13 @@ import java.util.List;
 
 public final class RdfAdapter {
 
+    @FunctionalInterface
+    public interface UrlToStream {
+
+        InputStream open(URL url) throws IOException;
+
+    }
+
     public static List<Statement> asStatements(File file) throws IOException {
         RDFFormat format =
                 Rio.getParserFormatForFileName(file.getName()).orElse(null);
@@ -42,6 +49,11 @@ public final class RdfAdapter {
     }
 
     public static List<Statement> asStatements(URL url) throws IOException {
+        return asStatements(url, URL::openStream);
+    }
+
+    public static List<Statement> asStatements(
+            URL url, UrlToStream urlToStream) throws IOException {
         switch (url.getProtocol()) {
             case "file":
                 try {
@@ -51,16 +63,18 @@ public final class RdfAdapter {
                 }
             case "http":
             case "https":
-                return fromHttp(url);
+                return fromHttp(url, urlToStream);
             default:
                 throw new IOException(
                         "Unsupported protocol: " + url.getProtocol());
         }
     }
 
-    private static List<Statement> fromHttp(URL url) throws IOException {
+
+    private static List<Statement> fromHttp(
+            URL url, UrlToStream urlToStream) throws IOException {
         List<Statement> result = new ArrayList<>();
-        try (InputStream stream = url.openStream()) {
+        try (InputStream stream = urlToStream.open(url)) {
             // TODO: This should use content-negotiation.
             RDFParser parser = Rio.createParser(RDFFormat.TURTLE);
             parser.setRDFHandler(new StatementCollector(result));

@@ -262,4 +262,13 @@ public class DiscoveryAdapter {
         return getFinishStatusFile(directory).exists();
     }
 
+    public void loadFromFinished(File directory, Discovery context)
+            throws DiscoveryException {
+        try {
+            loadNodes(context, directory, new HashMap<>());
+        } catch (IOException ex) {
+            throw new DiscoveryException("Can't save discovery context.", ex);
+        }
+    }
+
 }

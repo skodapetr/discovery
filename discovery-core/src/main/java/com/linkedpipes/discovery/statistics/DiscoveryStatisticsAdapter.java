@@ -45,7 +45,7 @@ public class DiscoveryStatisticsAdapter {
         for (DiscoveryStatistics.Level level : statistics.levels) {
             ObjectNode levelNode = objectMapper.createObjectNode();
             levels.add(levelNode);
-            levelNode.put("duration", level.durationInSeconds);
+            levelNode.put("duration", level.durationInMilliSeconds);
             levelNode.put("level", level.level);
             levelNode.put("startNodes", level.startNodes);
             levelNode.put("expandedNodes", level.expandedNodes);
@@ -111,7 +111,7 @@ public class DiscoveryStatisticsAdapter {
         for (JsonNode levelNode : levels) {
             DiscoveryStatistics.Level level = new DiscoveryStatistics.Level();
             result.levels.add(level);
-            level.durationInSeconds = levelNode.get("duration").asInt();
+            level.durationInMilliSeconds = levelNode.get("duration").asInt();
             level.level = levelNode.get("level").asInt();
             level.startNodes = levelNode.get("startNodes").asInt();
             level.expandedNodes = levelNode.get("expandedNodes").asInt();
@@ -164,4 +164,5 @@ public class DiscoveryStatisticsAdapter {
         }
         return null;
     }
+
 }

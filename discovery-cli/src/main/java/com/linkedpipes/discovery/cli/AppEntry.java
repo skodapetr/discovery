@@ -105,6 +105,11 @@ public class AppEntry {
         discoveryLimit.setRequired(false);
         options.addOption(discoveryLimit);
 
+        Option urlCache = new Option(
+                null, "UrlCache", true, "Directory to use for URL cache.");
+        store.setRequired(false);
+        options.addOption(urlCache);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         try {
@@ -130,6 +135,9 @@ public class AppEntry {
         configuration.discoveryTimeLimit =
                 Integer.parseInt(
                         cmd.getOptionValue("DiscoveryTimeLimit", "-1"));
+        if (cmd.hasOption("UrlCache")) {
+            configuration.urlCache = new File(cmd.getOptionValue("UrlCache"));
+        }
         if (cmd.hasOption("IHaveBadDiscoveryDefinition")) {
             configuration.ignoreIssues = true;
         }

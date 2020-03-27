@@ -41,7 +41,7 @@ public class DiscoveryStatistics {
         /**
          * Duration spend on discovery.
          */
-        public int durationInSeconds;
+        public int durationInMilliSeconds;
 
         /**
          * Starting from zero (root) denote the level in the exploration tree.
@@ -92,7 +92,7 @@ public class DiscoveryStatistics {
         public Set<Transformer> transformers = new HashSet<>();
 
         public void add(Level other) {
-            durationInSeconds += other.durationInSeconds;
+            durationInMilliSeconds += other.durationInMilliSeconds;
             startNodes = 0;
             expandedNodes += other.expandedNodes;
             filteredNodes += other.filteredNodes;

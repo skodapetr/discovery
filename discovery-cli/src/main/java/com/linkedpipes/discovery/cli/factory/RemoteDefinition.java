@@ -73,13 +73,18 @@ public class RemoteDefinition {
 
     private List<TransformerGroup> groups = new ArrayList<>();
 
+    private final UrlCache cache;
+
     public RemoteDefinition(
-            BuilderConfiguration configuration, String discoveryUrl) {
+            BuilderConfiguration configuration, String discoveryUrl,
+            UrlCache cache) {
         this.configuration = configuration;
         this.discoveryUrl = discoveryUrl;
+        this.cache = cache;
     }
 
     public void load() throws Exception {
+        cache.load();
         LOG.info("Collecting templates for: {}", discoveryUrl);
         List<String> templates = loadTemplateUrls(discoveryUrl);
         LOG.info("Loading templates ...");
@@ -88,13 +93,14 @@ public class RemoteDefinition {
                 applications.size(),
                 transformers.size(),
                 datasets.size());
+        cache.save();
         checkIsValid();
     }
 
     private List<String> loadTemplateUrls(String url) throws IOException {
         List<Statement> statements;
         try {
-            statements = RdfAdapter.asStatements(new URL(url));
+            statements = RdfAdapter.asStatements(new URL(url), cache::open);
         } catch (IOException ex) {
             if (!configuration.ignoreIssues) {
                 throw ex;
@@ -135,7 +141,7 @@ public class RemoteDefinition {
             } else if (HAS_TRANSFORMER_GROUP.equals(statement.getPredicate())) {
                 if (statement.getObject() instanceof Resource) {
                     onTransformerGroup(
-                            (Resource)statement.getObject(), statements);
+                            (Resource) statement.getObject(), statements);
                 }
             }
         }
@@ -162,7 +168,7 @@ public class RemoteDefinition {
         for (String url : templates) {
             List<Statement> statements;
             try {
-                statements = RdfAdapter.asStatements(new URL(url));
+                statements = RdfAdapter.asStatements(new URL(url), cache::open);
             } catch (Exception ex) {
                 if (!configuration.ignoreIssues) {
                     throw ex;
@@ -204,7 +210,8 @@ public class RemoteDefinition {
             String sampleUrl = statement.getObject().stringValue();
             List<Statement> dataSample;
             try {
-                dataSample = RdfAdapter.asStatements(new URL(sampleUrl));
+                dataSample = RdfAdapter.asStatements(
+                        new URL(sampleUrl), cache::open);
             } catch (Exception ex) {
                 if (!configuration.ignoreIssues) {
                     throw ex;

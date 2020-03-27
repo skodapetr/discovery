@@ -44,7 +44,8 @@ $ java -jar discovery.jar
 - *--DiscoveryTimeLimit* - Specify discovery time limit in minutes.
 - *--StrongGroups* - When set use strong transformer groups. Whole 
         group is explored first before other transformers can be applied.  
-
+- *--UrlCache* - Can be used to locally remote data to speed up loading
+        of definitions on slower internet connections. 
 [Java]: <http://www.oracle.com/technetwork/java/javase/downloads/index.html>
 [Git]: <https://git-scm.com/>
 [Maven]: <https://maven.apache.org/>

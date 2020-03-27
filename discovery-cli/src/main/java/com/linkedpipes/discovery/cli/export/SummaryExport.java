@@ -101,7 +101,7 @@ public class SummaryExport {
                 String[] row = {
                         groupEntry.getKey(),
                         Integer.toString(stats.pipelinesCount()),
-                        Long.toString(stats.durationInSeconds),
+                        Long.toString(stats.durationInMilliSeconds / 100),
                         Integer.toString(stats.applications.size()),
                         Integer.toString(groupEntry.getValue().size()),
                         Integer.toString(stats.transformers.size())

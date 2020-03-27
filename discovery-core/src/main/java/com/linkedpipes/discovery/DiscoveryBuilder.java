@@ -173,7 +173,11 @@ public class DiscoveryBuilder {
                 registry);
         addListeners(result);
         DiscoveryAdapter adapter = new DiscoveryAdapter();
-        adapter.loadFromResume(directory, result);
+        if (adapter.isDiscoveryFinishDataSaved(directory)) {
+            adapter.loadFromFinished(directory, result);
+        } else {
+            adapter.loadFromResume(directory, result);
+        }
         return result;
     }
 

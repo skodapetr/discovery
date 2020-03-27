@@ -57,7 +57,16 @@ public class RunExperiment {
             RunDiscovery runner = new RunDiscovery(discoveryConfig);
             var stats = runner.run(discoveries.get(index));
             // Modify path to reflect location in a subdirectory.
-            stats.forEach(item -> item.name = name + "/" + item.name);
+            // We also replace discovery IRI, instead of {iri}/{???},
+            // we set it to {iri}.
+            // The reason for this is, that old discovery runs a single
+            // discovery for multiple data sources. But we ru a discovery
+            // only for a single data source. We to address that we split
+            // a single discovery into more discoveries using the {???} suffix.
+            for (NamedDiscoveryStatistics statistics : stats) {
+                statistics.name = name + "/" + statistics.name;
+                statistics.discoveryIri = discoveries.get(index);
+            }
             result.addAll(stats);
         }
         SummaryExport.export(result, configuration.output);

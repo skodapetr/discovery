@@ -6,11 +6,6 @@ package com.linkedpipes.discovery;
 public final class MeterNames {
 
     /**
-     * Time of running whole discovery process for a node.
-     */
-    public static final String DISCOVERY_TIME = "discovery";
-
-    /**
      * Time used to load/save data samples in/to file system.
      */
     public static final String FILE_STORE_IO = "store.file.io";

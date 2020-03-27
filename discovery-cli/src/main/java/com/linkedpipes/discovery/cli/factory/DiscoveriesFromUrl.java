@@ -26,7 +26,7 @@ public class DiscoveriesFromUrl {
 
         void handle(
                 String name, File directory, Dataset dataset,
-                Discovery discoveryContext)
+                boolean resumed, Discovery discoveryContext)
                 throws DiscoveryException;
 
     }
@@ -44,7 +44,8 @@ public class DiscoveriesFromUrl {
     public void create(MeterRegistry registry, Handler handler)
             throws Exception {
         RemoteDefinition definition =
-                new RemoteDefinition(configuration, discoveryUrl);
+                new RemoteDefinition(
+                        configuration, discoveryUrl, createUrlCache());
         definition.load();
         List<Dataset> datasets = definition.getDatasets();
         // We force same ordering to allow use of resume.
@@ -54,25 +55,39 @@ public class DiscoveriesFromUrl {
             String iri = definition.getIri()
                     + "/" + String.format("%03d", index);
             File directory = new File(configuration.output, name);
-            Discovery discovery = createDiscovery(
+            DiscoveryBuilder builder = createDiscoveryBuilder(
                     iri, directory, datasets.get(index), definition, registry);
+            //
+            Discovery discovery;
+            boolean resume = configuration.resume && directory.exists();
+            if (resume) {
+                discovery = builder.resume(directory);
+            } else {
+                discovery = builder.createNew();
+            }
             addResourceStrategy(discovery);
             addOptionalListeners(definition, discovery);
-            handler.handle(name, directory, datasets.get(index), discovery);
+            handler.handle(
+                    name, directory, datasets.get(index), resume, discovery);
         }
     }
 
-    private Discovery createDiscovery(
-            String iri, File directory,
-            Dataset dataset, RemoteDefinition definition,
-            MeterRegistry registry) throws DiscoveryException {
-        boolean canResume = directory.exists();
+    private UrlCache createUrlCache() {
+        if (configuration.urlCache == null) {
+            return UrlCache.noCache();
+        } else {
+            return UrlCache.fileCache(configuration.urlCache);
+        }
+    }
+
+    private DiscoveryBuilder createDiscoveryBuilder(
+            String iri, File directory, Dataset dataset,
+            RemoteDefinition definition, MeterRegistry registry) {
         DiscoveryBuilder builder = new DiscoveryBuilder(
                 iri,
                 definition.getApplications(),
                 definition.getTransformers(),
                 definition.getGroups());
-
         if (configuration.levelLimit > -1) {
             builder.setLevelLimit(configuration.levelLimit);
         }
@@ -89,11 +104,7 @@ public class DiscoveriesFromUrl {
             builder.setMaxNodeExpansionTimeMs(
                     configuration.maxNodeExpansionTimeSeconds * 1000);
         }
-        if (configuration.resume && canResume) {
-            return builder.resume(directory);
-        } else {
-            return builder.createNew();
-        }
+        return builder;
     }
 
     protected SampleStore createSampleStore(

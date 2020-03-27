@@ -9,7 +9,6 @@ import com.linkedpipes.discovery.cli.export.DataSamplesExport;
 import com.linkedpipes.discovery.cli.export.GephiExport;
 import com.linkedpipes.discovery.cli.export.JsonPipelineExport;
 import com.linkedpipes.discovery.cli.export.NodeToName;
-import com.linkedpipes.discovery.cli.export.SummaryExport;
 import com.linkedpipes.discovery.cli.factory.BuilderConfiguration;
 import com.linkedpipes.discovery.cli.factory.DiscoveriesFromUrl;
 import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
@@ -29,7 +28,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -64,10 +62,10 @@ class RunDiscovery {
                 configuration, discoveryUrl);
         List<NamedDiscoveryStatistics> result = new ArrayList<>();
         discoveriesFromUrl.create(registry,
-                ((name, directory, dataset, discoveryContext) -> {
+                ((name, directory, dataset, resumed, discoveryContext) -> {
                     NamedDiscoveryStatistics stat = runDiscovery(
                             name, directory, dataset, discoveryContext,
-                            registry);
+                            resumed, registry);
                     result.add(stat);
                 }));
         return result;
@@ -75,7 +73,7 @@ class RunDiscovery {
 
     private NamedDiscoveryStatistics runDiscovery(
             String name, File directory, Dataset dataset,
-            Discovery discovery, MeterRegistry registry)
+            Discovery discovery, boolean resumed, MeterRegistry registry)
             throws DiscoveryException {
         DiscoveryStatisticsAdapter statisticsAdapter =
                 new DiscoveryStatisticsAdapter();
@@ -87,11 +85,14 @@ class RunDiscovery {
             return new NamedDiscoveryStatistics(statistics, name);
         }
         //
-        CollectStatistics collectStatistics =
-                new CollectStatistics(dataset);
+        LOG.info("Exploring dataset: {}", dataset.iri);
+        CollectStatistics collectStatistics = new CollectStatistics(dataset);
+        if (resumed) {
+            var statistics = statisticsAdapter.load(discovery, directory);
+            collectStatistics.resume(statistics);
+        }
         discovery.addListener(collectStatistics);
         DiscoveryRunner discoveryRunner = new DiscoveryRunner();
-        LOG.info("Exploring dataset: {}", dataset.iri);
         discoveryRunner.explore(discovery);
         // Save resume data if we have not searched all.
         DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();
@@ -111,9 +112,7 @@ class RunDiscovery {
         var namedStatistics = new NamedDiscoveryStatistics(
                 collectStatistics.getStatistics(), name);
         try {
-            export(
-                    discovery, dataset, root,
-                    namedStatistics, directory);
+            export(discovery, dataset, root, directory);
         } catch (IOException ex) {
             throw new DiscoveryException(
                     "Export failed for: {}", name, ex);
@@ -124,8 +123,7 @@ class RunDiscovery {
     }
 
     private void export(
-            Discovery discovery, Dataset dataset, Node root,
-            NamedDiscoveryStatistics statistics, File output)
+            Discovery discovery, Dataset dataset, Node root, File output)
             throws IOException {
         LOG.info("Exporting ...");
         NodeToName nodeToName = new NodeToName(root);
@@ -137,7 +135,6 @@ class RunDiscovery {
         JsonPipelineExport.export(
                 discovery, dataset, root, new File(output, "pipelines.json"),
                 nodeToName);
-        SummaryExport.export(Collections.singleton(statistics), output);
         DataSamplesExport.export(
                 root, nodeToName,
                 discovery.getStore(),
@@ -146,7 +143,6 @@ class RunDiscovery {
 
     public void logMeterRegistry(MeterRegistry registry) {
         String message = "Runtime statistics:" + System.lineSeparator()
-                + "    total time        :  %8d s" + System.lineSeparator()
                 + "    store.file.io     :  %8d s" + System.lineSeparator()
                 + "    repository create :  %8d s" + System.lineSeparator()
                 + "    repository update :  %8d s" + System.lineSeparator()
@@ -159,8 +155,6 @@ class RunDiscovery {
                 + "    store.breakup.io  :  %8d s" + System.lineSeparator()
                 + "    store.diff.create :  %8d s" + System.lineSeparator();
         LOG.info(String.format(message,
-                (int) registry.timer(MeterNames.DISCOVERY_TIME)
-                        .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.FILE_STORE_IO)
                         .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.CREATE_REPOSITORY)
@@ -183,7 +177,6 @@ class RunDiscovery {
                         .totalTime(TimeUnit.SECONDS),
                 (int) registry.timer(MeterNames.DIFF_STORE_CONSTRUCT)
                         .totalTime(TimeUnit.SECONDS)));
-
     }
 
 }

@@ -30,6 +30,8 @@ public class BuilderConfiguration {
 
     public boolean useStrongGroups = false;
 
+    public File urlCache = null;
+
     public File reportFile() {
         if (!ignoreIssues) {
             return null;
