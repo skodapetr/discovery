@@ -8,7 +8,6 @@ import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.DiscoveryException;
 import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Transformer;
-import com.linkedpipes.discovery.rdf.LangString;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,18 +29,8 @@ public class DiscoveryStatisticsAdapter {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("iri", statistics.discoveryIri);
 
-        ObjectNode dataset = objectMapper.createObjectNode();
-        dataset.put("iri", statistics.dataset.iri);
-        ObjectNode datasetTitle = objectMapper.createObjectNode();
-        for (var entry : statistics.dataset.title.getValues().entrySet()) {
-            datasetTitle.put(entry.getKey(), entry.getValue());
-        }
-        dataset.set("title", datasetTitle);
-        root.set("dataset", dataset);
-
         ArrayNode levels = objectMapper.createArrayNode();
         root.set("level", levels);
-
         for (DiscoveryStatistics.Level level : statistics.levels) {
             ObjectNode levelNode = objectMapper.createObjectNode();
             levels.add(levelNode);
@@ -92,21 +81,7 @@ public class DiscoveryStatisticsAdapter {
         DiscoveryStatistics result = new DiscoveryStatistics();
         result.discoveryIri = root.textNode("iri").textValue();
 
-        ObjectNode datasetNode = (ObjectNode) root.get("dataset");
-        LangString datasetLang = new LangString();
-        ObjectNode datasetLangNode = (ObjectNode) datasetNode.get("title");
-        var iterator = datasetLangNode.fields();
-        while (iterator.hasNext()) {
-            var item = iterator.next();
-            datasetLang.add(item.getKey(), item.getValue().textValue());
-        }
-
-        DiscoveryStatistics.DatasetRef datasetRef =
-                new DiscoveryStatistics.DatasetRef(
-                        datasetNode.textNode("iri").textValue(),
-                        datasetLang);
-        result.dataset = datasetRef;
-
+        // Levels.
         ArrayNode levels = (ArrayNode) root.get("level");
         for (JsonNode levelNode : levels) {
             DiscoveryStatistics.Level level = new DiscoveryStatistics.Level();

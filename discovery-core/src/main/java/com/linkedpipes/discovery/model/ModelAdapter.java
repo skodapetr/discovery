@@ -177,6 +177,31 @@ public final class ModelAdapter {
                         result.configurationQuery = object.stringValue();
                     }
                     break;
+                case DISCOVERY.HAS_SERVICE:
+                    if (object instanceof Resource) {
+                        result.service = loadService(
+                                statements, (Resource) object);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        return result;
+    }
+
+    private static Service loadService(
+            List<Statement> statements, Resource resource) {
+        Service result = new Service();
+        for (Statement statement : statements) {
+            if (!resource.equals(statement.getSubject())) {
+                continue;
+            }
+            Value object = statement.getObject();
+            switch (statement.getPredicate().stringValue()) {
+                case DISCOVERY.HAS_ENDPOINT:
+                    result.endpoint = object.stringValue();
+                    break;
                 default:
                     break;
             }
@@ -285,6 +310,11 @@ public final class ModelAdapter {
                 case DCTERMS.HAS_TITLE:
                     result.title.add(object);
                     break;
+                case DISCOVERY.HAS_CONFIGURATION_TEMPLATE:
+                    if (object instanceof Resource) {
+                        result.configuration = loadConfiguration(
+                                statements, (Resource) object);
+                    }
                 default:
                     break;
             }

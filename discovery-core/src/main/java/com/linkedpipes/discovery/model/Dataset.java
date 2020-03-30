@@ -20,6 +20,8 @@ public class Dataset {
 
     public List<Statement> sample = new ArrayList<>();
 
+    public Configuration configuration;
+
     public Dataset() {
     }
 

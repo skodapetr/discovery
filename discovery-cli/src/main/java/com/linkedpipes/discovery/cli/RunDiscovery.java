@@ -82,11 +82,12 @@ class RunDiscovery {
             // The execution has already been finished, we just load the
             // statistics.
             var statistics = statisticsAdapter.load(discovery, directory);
-            return new NamedDiscoveryStatistics(statistics, name);
+            return new NamedDiscoveryStatistics(
+                    name, statistics, discovery, dataset);
         }
         //
         LOG.info("Exploring dataset: {}", dataset.iri);
-        CollectStatistics collectStatistics = new CollectStatistics(dataset);
+        CollectStatistics collectStatistics = new CollectStatistics();
         if (resumed) {
             var statistics = statisticsAdapter.load(discovery, directory);
             collectStatistics.resume(statistics);
@@ -110,7 +111,7 @@ class RunDiscovery {
         (new ShakeNonExpandedNodes()).shake(root);
         (new ShakeRedundantNodes()).shake(root);
         var namedStatistics = new NamedDiscoveryStatistics(
-                collectStatistics.getStatistics(), name);
+                name, collectStatistics.getStatistics(), discovery, dataset);
         try {
             export(discovery, dataset, root, directory);
         } catch (IOException ex) {

@@ -34,13 +34,16 @@ public class SummaryExport {
             "pipelines count",
             "time (s)",
             "applications count",
+            "used applications count",
             "datasets counts",
             "transformers count",
+            "used transformers count",
     };
 
     private static String[] HEADER_DATASET_DISCOVERY = {
             "path",
             "dataset",
+            "dataset sparql endpoint",
             "discovery",
             "dataset label",
             "pipelines count",
@@ -58,11 +61,12 @@ public class SummaryExport {
     private static String[] HEADER_DATASET_APPLICATION_DISCOVERY = {
             "path",
             "dataset",
+            "dataset sparql endpoint",
             "application",
             "discovery",
             "dataset label",
             "application label",
-            "pipelines count",
+            "pipelines count"
     };
 
     public static void export(
@@ -91,20 +95,30 @@ public class SummaryExport {
                 var writer = new CSVWriter(printWriter, ',', '"', '\\', "\n")) {
             writer.writeNext(HEADER_DISCOVERY);
             for (var groupEntry : groups.entrySet()) {
-                NamedDiscoveryStatistics.Level stats =
+                NamedDiscoveryStatistics.Level agg =
                         new NamedDiscoveryStatistics.Level();
+                // We need just one discovery.
+                NamedDiscoveryStatistics stats = null;
                 for (var discoveryEntry : groupEntry.getValue()) {
+                    stats = discoveryEntry;
                     for (var level : discoveryEntry.levels) {
-                        stats.add(level);
+                        agg.add(level);
                     }
+                }
+                if (stats == null) {
+                    // Should not happen, just to be safe.
+                    throw new RuntimeException(
+                            "Empty group: " + groupEntry.getKey());
                 }
                 String[] row = {
                         groupEntry.getKey(),
-                        Integer.toString(stats.pipelinesCount()),
-                        Long.toString(stats.durationInMilliSeconds / 100),
+                        Integer.toString(agg.pipelinesCount()),
+                        Long.toString(agg.durationInMilliSeconds / 100),
                         Integer.toString(stats.applications.size()),
+                        Integer.toString(agg.applications.size()),
                         Integer.toString(groupEntry.getValue().size()),
-                        Integer.toString(stats.transformers.size())
+                        Integer.toString(stats.transformers.size()),
+                        Integer.toString(agg.transformers.size())
                 };
                 writer.writeNext(row);
             }
@@ -122,6 +136,7 @@ public class SummaryExport {
                 String[] row = {
                         entry.name,
                         entry.dataset.iri,
+                        entry.dataset.sparqlEndpoint,
                         entry.discoveryIri,
                         entry.dataset.title.asString(),
                         Integer.toString(agg.pipelinesCount()),
@@ -171,11 +186,12 @@ public class SummaryExport {
                     String[] row = {
                             entry.name,
                             entry.dataset.iri,
+                            entry.dataset.sparqlEndpoint,
                             appEntry.getKey().iri,
                             entry.discoveryIri,
                             entry.dataset.title.asString(),
                             appEntry.getKey().title.asString(),
-                            Integer.toString(agg.pipelinesCount()),
+                            Integer.toString(agg.pipelinesCount())
                     };
                     writer.writeNext(row);
                 }

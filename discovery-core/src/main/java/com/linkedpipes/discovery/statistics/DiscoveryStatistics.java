@@ -18,24 +18,6 @@ import java.util.Set;
         "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"})
 public class DiscoveryStatistics {
 
-    public static class DatasetRef {
-
-        public final String iri;
-
-        public final LangString title;
-
-        public DatasetRef(String iri, LangString title) {
-            this.iri = iri;
-            this.title = title;
-        }
-
-        public DatasetRef(Dataset dataset) {
-            iri = dataset.iri;
-            title = dataset.title;
-        }
-
-    }
-
     public static class Level {
 
         /**
@@ -127,8 +109,6 @@ public class DiscoveryStatistics {
     public List<Level> levels = new ArrayList<>();
 
     public String discoveryIri;
-
-    public DatasetRef dataset;
 
     public Level aggregate() {
         Level result = new Level();

@@ -2,11 +2,17 @@ package com.linkedpipes.discovery.model;
 
 import com.linkedpipes.discovery.TestResources;
 import com.linkedpipes.discovery.rdf.LangString;
+import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class TestModelAdapter {
 
@@ -226,7 +232,7 @@ public class TestModelAdapter {
     }
 
     @Test
-    public void loadDataset() throws IOException {
+    public void loadDatasetFromDirectory() throws IOException {
         Dataset actual = ModelAdapter.loadDataset(
                 "http://localhost/dataset",
                 "Local dataset",
@@ -235,6 +241,25 @@ public class TestModelAdapter {
                 "http://localhost/dataset",
                 actual.iri);
         Assertions.assertEquals(9, actual.sample.size());
+    }
+
+    @Test
+    public void loadDataset() throws IOException {
+        Resource iri = SimpleValueFactory.getInstance().createIRI(
+                "https://discovery.linkedpipes.com/resource/lod/templates/"
+                        + "http---apps.morelab.deusto.es-labman-sparql");
+        List<Statement> statements = RdfAdapter.asStatements(
+                TestResources.file(
+                        "model/apps.morelab.deusto.es-labman-sparql.ttl"));
+        Dataset actual = ModelAdapter.loadDataset(
+                iri, statements, Collections.emptyList());
+        Assertions.assertEquals(iri.stringValue(), actual.iri);
+        Assertions.assertEquals(
+                "http://apps.morelab.deusto.es/labman/sparql template",
+                actual.title.asString());
+        Assertions.assertEquals(
+                "http://apps.morelab.deusto.es/labman/sparql",
+                actual.configuration.service.endpoint);
     }
 
 }

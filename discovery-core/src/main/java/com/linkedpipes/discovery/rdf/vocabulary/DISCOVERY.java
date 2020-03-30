@@ -30,4 +30,9 @@ public final class DISCOVERY {
     public static final String GROUP_HAS_TRANSFORMER = PREFIX +
             "discovery/hasTransformer";
 
+    public static final String HAS_SERVICE = PREFIX + "service";
+
+    public static final String HAS_ENDPOINT =
+            "http://www.w3.org/ns/sparql-service-description#endpoint";
+
 }

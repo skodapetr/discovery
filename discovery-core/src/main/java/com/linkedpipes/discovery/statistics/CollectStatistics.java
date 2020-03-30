@@ -37,12 +37,6 @@ public class CollectStatistics implements DiscoveryListener {
 
     private Discovery context;
 
-    private final DiscoveryStatistics.DatasetRef dataset;
-
-    public CollectStatistics(Dataset dataset) {
-        this.dataset = new DiscoveryStatistics.DatasetRef(dataset);
-    }
-
     public void resume(DiscoveryStatistics statistics) {
         this.statistics = statistics;
         this.levelStatistics = statistics.levels.get(
@@ -55,7 +49,6 @@ public class CollectStatistics implements DiscoveryListener {
             return true;
         }
         this.statistics = new DiscoveryStatistics();
-        this.statistics.dataset = dataset;
         this.context = context;
         addLevelForRoot(context.getRoot());
         prepareStatisticsForNewLevel();

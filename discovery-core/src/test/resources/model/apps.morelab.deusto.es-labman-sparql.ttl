@@ -1,0 +1,50 @@
+@prefix dcterms:                  <http://purl.org/dc/terms/> .
+@prefix sd:                       <http://www.w3.org/ns/sparql-service-description#> .
+@prefix lpd:                      <https://discovery.linkedpipes.com/vocabulary/> .
+@prefix configuration-vocabulary: <https://discovery.linkedpipes.com/vocabulary/lod/dataset/http---apps.morelab.deusto.es-labman-sparql/configuration> .
+@prefix d-sparql:                 <https://discovery.linkedpipes.com/vocabulary/datasource/sparql/> .
+@prefix dataset:                  <https://discovery.linkedpipes.com/resource/lod/templates/http---apps.morelab.deusto.es-labman-sparql#> .
+
+<https://discovery.linkedpipes.com/resource/lod/templates/http---apps.morelab.deusto.es-labman-sparql>
+    a                                  lpd:DataSourceTemplate ;
+    dcterms:title
+                                       "http://apps.morelab.deusto.es/labman/sparql template" ;
+    lpd:outputTemplate                 dataset:output ;
+    lpd:componentConfigurationTemplate dataset:defaultConfiguration .
+
+dataset:output
+    a             lpd:OutputDataPortTemplate ;
+    dcterms:title "http://apps.morelab.deusto.es/labman/sparql port" ;
+    lpd:outputDataSample
+                  <https://discovery.linkedpipes.com/resource/lod/samples/http---apps.morelab.deusto.es-labman-sparql.ttl> .
+
+dataset:defaultConfiguration
+    a                      d-sparql:SparqlEndpointDataSourceConfiguration ;
+    dcterms:title          "http://apps.morelab.deusto.es/labman/sparql" ;
+    lpd:service            dataset:defaultService ;
+    lpd:query              """
+		CONSTRUCT {
+		  ?s ?p ?o .
+		} WHERE {
+		  ?s ?p ?o .
+		}
+	""" ;
+    lpd:configurationQuery """
+		PREFIX dcterms: <http://purl.org/dc/terms/>
+		PREFIX lpd: <https://discovery.linkedpipes.com/vocabulary/>
+		PREFIX configuration-vocabulary: <https://discovery.linkedpipes.com/vocabulary/lod/dataset/http---apps.morelab.deusto.es-labman-sparql/configuration>
+
+		CONSTRUCT {
+			?config a configuration-vocabulary:Configuration ;
+				lpd:query ?query ;
+				dcterms:title ?title .
+		} WHERE {
+			?config a configuration-vocabulary:Configuration .
+			OPTIONAL { ?config lpd:query ?query . }
+			OPTIONAL { ?config dcterms:title ?title . }
+		}
+	""" .
+
+dataset:defaultService
+    a           sd:Service ;
+    sd:endpoint <http://apps.morelab.deusto.es/labman/sparql> .

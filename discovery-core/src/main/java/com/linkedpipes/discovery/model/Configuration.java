@@ -12,4 +12,6 @@ public class Configuration {
 
     public String configurationQuery;
 
+    public Service service;
+
 }
