@@ -37,7 +37,8 @@ public class TestDiscovery {
                 TestResources.file("pipeline/dataset/000"));
 
         DiscoveryBuilder builder = new DiscoveryBuilder(
-                "urn:discovery", Collections.emptyList(), transformers,
+                "urn:discovery", "",
+                Collections.emptyList(), transformers,
                 Collections.emptyList());
         builder.setDataset(dataset);
         builder.setRegistry(registry);

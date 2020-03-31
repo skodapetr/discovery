@@ -22,6 +22,8 @@ public class Discovery {
 
     private final String iri;
 
+    private final String nodePrefix;
+
     private Node root;
 
     private final Deque<Node> queue = new ArrayDeque<>();
@@ -43,13 +45,14 @@ public class Discovery {
     private final MeterRegistry registry;
 
     public Discovery(
-            String iri,
+            String iri, String nodePrefix,
             List<Application> applications, List<Transformer> transformers,
             List<TransformerGroup> groups,
             SampleStore store, NodeFilter filter,
             DataSampleTransformer dataSampleTransformer,
             MeterRegistry registry) {
         this.iri = iri;
+        this.nodePrefix = nodePrefix;
         this.applications = applications;
         this.transformers = transformers;
         this.groups = groups;
@@ -61,6 +64,10 @@ public class Discovery {
 
     public String getIri() {
         return iri;
+    }
+
+    public String getNodePrefix() {
+        return nodePrefix;
     }
 
     public Node getRoot() {

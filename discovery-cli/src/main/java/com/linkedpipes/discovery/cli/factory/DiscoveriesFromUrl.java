@@ -52,11 +52,10 @@ public class DiscoveriesFromUrl {
         datasets.sort(Comparator.comparing(dataset -> dataset.iri));
         for (int index = 0; index < datasets.size(); ++index) {
             String name = "discovery_" + String.format("%03d", index);
-            String iri = definition.getIri()
-                    + "/" + String.format("%03d", index);
             File directory = new File(configuration.output, name);
             DiscoveryBuilder builder = createDiscoveryBuilder(
-                    iri, directory, datasets.get(index), definition, registry);
+                    directory, datasets.get(index),
+                    definition, registry);
             //
             Discovery discovery;
             boolean resume = configuration.resume && directory.exists();
@@ -81,10 +80,10 @@ public class DiscoveriesFromUrl {
     }
 
     private DiscoveryBuilder createDiscoveryBuilder(
-            String iri, File directory, Dataset dataset,
+            File directory, Dataset dataset,
             RemoteDefinition definition, MeterRegistry registry) {
         DiscoveryBuilder builder = new DiscoveryBuilder(
-                iri,
+                discoveryUrl, getDiscoveryNodePrefix(),
                 definition.getApplications(),
                 definition.getTransformers(),
                 definition.getGroups());
@@ -105,6 +104,10 @@ public class DiscoveriesFromUrl {
                     configuration.maxNodeExpansionTimeSeconds * 1000);
         }
         return builder;
+    }
+
+    protected String getDiscoveryNodePrefix() {
+        return "";
     }
 
     protected SampleStore createSampleStore(

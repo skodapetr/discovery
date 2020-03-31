@@ -33,7 +33,7 @@ public class TextExpandNode {
                         "pipeline/application/dcterms.ttl")));
         SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
-                sampleStore,
+                "", sampleStore,
                 new NoFilter(),
                 new AskNode(
                         applications, Collections.emptyList(), memoryRegistry),
@@ -45,7 +45,7 @@ public class TextExpandNode {
                 "NKOD",
                 TestResources.file("pipeline/dataset/nkod"));
 
-        Node root = new Node();
+        Node root = new Node("root");
         expander.expandRoot(root, dataset.sample);
 
         Assertions.assertEquals(0, root.getNext().size());
@@ -72,7 +72,7 @@ public class TextExpandNode {
 
         SampleStore sampleStore = SampleStore.memoryStore();
         ExpandNode expander = new ExpandNode(
-                sampleStore,
+                "", sampleStore,
                 new NoFilter(),
                 new AskNode(applications, transformers, memoryRegistry),
                 DataSampleTransformer.noAction(),
@@ -84,7 +84,7 @@ public class TextExpandNode {
                 "NKOD",
                 TestResources.file("pipeline/dataset/nkod"));
 
-        Node root = new Node();
+        Node root = new Node("root");
         expander.expandRoot(root, dataset.sample);
         root.setDataSampleRef(
                 sampleStore.store(dataset.sample, SampleGroup.ROOT));

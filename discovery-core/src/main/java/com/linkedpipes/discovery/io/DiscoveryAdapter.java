@@ -24,7 +24,7 @@ public class DiscoveryAdapter {
 
     private static class NodeIoContainer {
 
-        public String name;
+        public String id;
 
         public String transformer;
 
@@ -44,16 +44,16 @@ public class DiscoveryAdapter {
 
     }
 
-    public void saveForResume(Discovery context, File directory)
+    public void saveForResume(Discovery discovery, File directory)
             throws DiscoveryException {
         directory = getResumeDirectory(directory);
         directory.mkdirs();
         try {
-            var refMap = saveStore(context.getStore(), directory);
-            saveFilter(context, directory, refMap);
-            saveNodes(context, directory, refMap);
+            var refMap = saveStore(discovery.getStore(), directory);
+            saveFilter(discovery, directory, refMap);
+            saveNodes(discovery, directory, refMap);
         } catch (IOException ex) {
-            throw new DiscoveryException("Can't save discovery context.", ex);
+            throw new DiscoveryException("Can't save discovery discovery.", ex);
         }
     }
 
@@ -86,32 +86,30 @@ public class DiscoveryAdapter {
     }
 
     private void saveFilter(
-            Discovery context, File directory,
+            Discovery discovery, File directory,
             Map<SampleRef, String> refMap)
             throws IOException, DiscoveryException {
-        context.getFilter().save(directory, refMap::get);
+        discovery.getFilter().save(directory, refMap::get);
     }
 
     private void saveNodes(
-            Discovery context, File directory,
+            Discovery discovery, File directory,
             Map<SampleRef, String> refMap) throws IOException {
-        Map<Node, String> nodeToString = new HashMap<>();
-        context.getRoot().accept(node -> {
-            nodeToString.put(node, "node-" + nodeToString.size());
-        });
-        List<NodeIoContainer> nodes = new ArrayList<>(nodeToString.size());
-        context.getRoot().accept(node -> {
+        List<NodeIoContainer> nodes = new ArrayList<>();
+        discovery.getRoot().accept(node -> {
             NodeIoContainer container = new NodeIoContainer();
-            container.name = nodeToString.get(node);
+            container.id = node.getId();
             if (node.getTransformer() != null) {
                 container.transformer = node.getTransformer().iri;
             }
             container.applications = node.getApplications().stream()
                     .map(app -> app.iri)
                     .collect(Collectors.toList());
-            container.previous = nodeToString.get(node.getPrevious());
+            if (node.getPrevious() != null) {
+                container.previous = node.getPrevious().getId();
+            }
             container.next = node.getNext().stream()
-                    .map(nodeToString::get)
+                    .map(Node::getId)
                     .collect(Collectors.toList());
             container.level = node.getLevel();
             container.dataSampleRef = refMap.get(node.getDataSampleRef());
@@ -122,8 +120,8 @@ public class DiscoveryAdapter {
         directory.mkdirs();
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.writeValue(getNodesFile(directory), nodes);
-        List<String> queue = context.getQueue().stream()
-                .map(nodeToString::get)
+        List<String> queue = discovery.getQueue().stream()
+                .map(Node::getId)
                 .collect(Collectors.toList());
         objectMapper.writeValue(getQueueFile(directory), queue);
     }
@@ -131,7 +129,6 @@ public class DiscoveryAdapter {
     private File getNodesFile(File directory) {
         return new File(directory, "nodes.json");
     }
-
 
     private File getQueueFile(File directory) {
         return new File(directory, "nodes-queue.json");
@@ -144,11 +141,11 @@ public class DiscoveryAdapter {
     /**
      * Can't be used to resume the execution.
      */
-    public void saveFinishedDiscovery(Discovery context, File directory)
+    public void saveFinishedDiscovery(Discovery discovery, File directory)
             throws DiscoveryException {
         directory.mkdirs();
         try {
-            saveNodes(context, directory, new HashMap<>());
+            saveNodes(discovery, directory, new HashMap<>());
             getFinishStatusFile(directory).createNewFile();
         } catch (IOException ex) {
             throw new DiscoveryException("Can't save nodes.", ex);
@@ -159,15 +156,15 @@ public class DiscoveryAdapter {
         return new File(directory, "discovery-finished");
     }
 
-    public void loadFromResume(File directory, Discovery context)
+    public void loadFromResume(File directory, Discovery discovery)
             throws DiscoveryException {
         directory = getResumeDirectory(directory);
         try {
-            var refMap = loadStore(context.getStore(), directory);
-            loadFilter(context, directory, refMap);
-            loadNodes(context, directory, refMap);
+            var refMap = loadStore(discovery.getStore(), directory);
+            loadFilter(discovery, directory, refMap);
+            loadNodes(discovery, directory, refMap);
         } catch (IOException ex) {
-            throw new DiscoveryException("Can't save discovery context.", ex);
+            throw new DiscoveryException("Can't save discovery discovery.", ex);
         }
     }
 
@@ -192,14 +189,14 @@ public class DiscoveryAdapter {
     }
 
     private void loadFilter(
-            Discovery context, File directory,
+            Discovery discovery, File directory,
             Map<String, SampleRef> refMap)
             throws IOException, DiscoveryException {
-        context.getFilter().load(directory, refMap::get);
+        discovery.getFilter().load(directory, refMap::get);
     }
 
     private void loadNodes(
-            Discovery context, File directory,
+            Discovery discovery, File directory,
             Map<String, SampleRef> refMap) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         NodeIoContainer[] nodes = objectMapper.readValue(
@@ -210,47 +207,47 @@ public class DiscoveryAdapter {
         Node root = null;
         for (NodeIoContainer nodeContainer : nodes) {
             if (nodeContainer.previous == null) {
-                root = new Node();
+                root = new Node(nodeContainer.id);
                 root.setNext(new ArrayList<>());
                 root.setDataSampleRef(refMap.get(nodeContainer.dataSampleRef));
                 root.setExpanded(nodeContainer.expanded);
-                root.setApplications(getApplications(context, nodeContainer));
+                root.setApplications(getApplications(discovery, nodeContainer));
                 root.setRedundant(nodeContainer.redundant);
-                nodeMap.put(nodeContainer.name, root);
+                nodeMap.put(nodeContainer.id, root);
                 continue;
             }
             Node parent = nodeMap.get(nodeContainer.previous);
-            Transformer transformer = getTransformer(context, nodeContainer);
-            Node node = new Node(parent, transformer);
+            Transformer transformer = getTransformer(discovery, nodeContainer);
+            Node node = new Node(nodeContainer.id, parent, transformer);
             node.setNext(new ArrayList<>());
             parent.addNext(node);
             //
             node.setDataSampleRef(refMap.get(nodeContainer.dataSampleRef));
             node.setExpanded(nodeContainer.expanded);
-            node.setApplications(getApplications(context, nodeContainer));
+            node.setApplications(getApplications(discovery, nodeContainer));
             node.setRedundant(nodeContainer.redundant);
-            nodeMap.put(nodeContainer.name, node);
+            nodeMap.put(nodeContainer.id, node);
         }
-        context.setRoot(root);
+        discovery.setRoot(root);
         // Select queue.
         String[] queue = objectMapper.readValue(
                 getQueueFile(directory), String[].class);
         for (String ref : queue) {
-            context.getQueue().push(nodeMap.get(ref));
+            discovery.getQueue().push(nodeMap.get(ref));
         }
 
     }
 
     private List<Application> getApplications(
-            Discovery context, NodeIoContainer container) {
-        return context.getApplications().stream()
+            Discovery discovery, NodeIoContainer container) {
+        return discovery.getApplications().stream()
                 .filter(app -> container.applications.contains(app.iri))
                 .collect(Collectors.toList());
     }
 
     private Transformer getTransformer(
-            Discovery context, NodeIoContainer container) {
-        for (Transformer transformer : context.getTransformers()) {
+            Discovery discovery, NodeIoContainer container) {
+        for (Transformer transformer : discovery.getTransformers()) {
             if (transformer.iri.equals(container.transformer)) {
                 return transformer;
             }
@@ -262,12 +259,12 @@ public class DiscoveryAdapter {
         return getFinishStatusFile(directory).exists();
     }
 
-    public void loadFromFinished(File directory, Discovery context)
+    public void loadFromFinished(File directory, Discovery discovery)
             throws DiscoveryException {
         try {
-            loadNodes(context, directory, new HashMap<>());
+            loadNodes(discovery, directory, new HashMap<>());
         } catch (IOException ex) {
-            throw new DiscoveryException("Can't save discovery context.", ex);
+            throw new DiscoveryException("Can't save discovery discovery.", ex);
         }
     }
 

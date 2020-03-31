@@ -166,6 +166,7 @@ public class RemoteDefinition {
     private void loadTemplates(List<String> templates)
             throws Exception {
         for (String url : templates) {
+            LOG.debug("Reading: {}", url);
             List<Statement> statements;
             try {
                 statements = RdfAdapter.asStatements(new URL(url), cache::open);
@@ -177,6 +178,7 @@ public class RemoteDefinition {
                 appendToReport("Invalid template URL: " + url);
                 continue;
             }
+            LOG.debug("Parsing: {}", url);
             for (Statement statement : statements) {
                 if (!statement.getSubject().stringValue().equals(url)) {
                     continue;
@@ -210,8 +212,10 @@ public class RemoteDefinition {
             String sampleUrl = statement.getObject().stringValue();
             List<Statement> dataSample;
             try {
+                LOG.debug("Reading data sample ...");
                 dataSample = RdfAdapter.asStatements(
                         new URL(sampleUrl), cache::open);
+                LOG.debug("Reading data sample ... done");
             } catch (Exception ex) {
                 if (!configuration.ignoreIssues) {
                     throw ex;

@@ -60,6 +60,7 @@ public class TestDiscoveryAdapter {
             if (node.isRedundant()) {
                 redundantNodes.add(node);
             }
+            Assertions.assertTrue(node.getId().startsWith("prefix_"));
         });
         Assertions.assertEquals(5, allExpanded.size());
         Assertions.assertEquals(1, redundantNodes.size());
@@ -79,11 +80,12 @@ public class TestDiscoveryAdapter {
 
         Dataset dataset = ModelAdapter.loadDataset(
                 "urn:dataset",
-                "000",
+                "prefix_000",
                 TestResources.file("pipeline/dataset/000"));
 
         DiscoveryBuilder builder = new DiscoveryBuilder(
-                "urn:discovery", Collections.emptyList(), transformers,
+                "urn:discovery", "prefix_",
+                Collections.emptyList(), transformers,
                 Collections.emptyList());
         builder.setDataset(dataset);
         builder.setRegistry(registry);

@@ -29,6 +29,10 @@ import java.util.stream.Collectors;
  */
 public class ExpandNode {
 
+    private final String nodeIdPrefix;
+
+    private int nodeCounter = 0;
+
     private final SampleStore store;
 
     private final NodeFilter filter;
@@ -42,9 +46,11 @@ public class ExpandNode {
     private DataSampleTransformer dataSampleTransformer;
 
     public ExpandNode(
+            String nodeIdPrefix,
             SampleStore store, NodeFilter filter, AskNode askNode,
             DataSampleTransformer dataSampleTransformer,
             MeterRegistry registry) {
+        this.nodeIdPrefix = nodeIdPrefix;
         this.store = store;
         this.filter = filter;
         this.askNode = askNode;
@@ -96,8 +102,13 @@ public class ExpandNode {
     private List<Node> createNextLevelNodes(
             Node parent, List<Transformer> transformers) {
         return transformers.stream()
-                .map(transformer -> new Node(parent, transformer))
+                .map(transformer -> new Node(
+                        getNewNodeId(), parent, transformer))
                 .collect(Collectors.toList());
+    }
+
+    private String getNewNodeId() {
+        return nodeIdPrefix + (++nodeCounter);
     }
 
     public void expand(Node node) throws DiscoveryException {

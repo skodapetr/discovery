@@ -20,11 +20,10 @@ public class DataSamplesExport {
             LoggerFactory.getLogger(DataSamplesExport.class);
 
     public static void export(
-            Node root, NodeToName nodeToName, SampleStore sampleStore,
-            File directory) {
+            Node root, SampleStore sampleStore, File directory) {
         directory.mkdirs();
         root.accept((node) -> {
-            File output = new File(directory, nodeToName.name(node) + ".ttl");
+            File output = new File(directory, node.getId() + ".ttl");
             saveDataSample(node, sampleStore, output);
         });
     }

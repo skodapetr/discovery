@@ -13,6 +13,11 @@ import java.util.List;
 public class Node {
 
     /**
+     * Node identification.
+     */
+    private final String id;
+
+    /**
      * Transformer applied to get to this node from {@link #previous}.
      */
     private final Transformer transformer;
@@ -40,18 +45,24 @@ public class Node {
      */
     private boolean expanded = false;
 
-    public Node() {
+    public Node(String id) {
+        this.id = id;
         this.transformer = null;
         this.applications = Collections.emptyList();
         this.previous = null;
         this.level = 0;
     }
 
-    public Node(Node previous, Transformer transformer) {
+    public Node(String id, Node previous, Transformer transformer) {
+        this.id = id;
         this.transformer = transformer;
         this.applications = Collections.emptyList();
         this.previous = previous;
         this.level = previous.level + 1;
+    }
+
+    public String getId() {
+        return id;
     }
 
     public Transformer getTransformer() {

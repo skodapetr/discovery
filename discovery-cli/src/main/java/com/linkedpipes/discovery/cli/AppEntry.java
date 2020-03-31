@@ -31,7 +31,10 @@ public class AppEntry {
             runner.run(cmd.getOptionValue("Experiment"));
         } else if (cmd.hasOption("Discovery")) {
             RunDiscovery runner = new RunDiscovery(configuration);
-            runner.run(cmd.getOptionValue("Discovery"));
+            runner.run(
+                    cmd.getOptionValue("Discovery"),
+                    (discovery, dataset, statistics, name) -> {
+                    });
         } else {
             System.out.println(
                     "Either 'discovery' or 'experiment' must be set.");

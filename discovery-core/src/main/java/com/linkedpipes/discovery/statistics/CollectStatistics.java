@@ -3,14 +3,19 @@ package com.linkedpipes.discovery.statistics;
 import com.linkedpipes.discovery.Discovery;
 import com.linkedpipes.discovery.DiscoveryListener;
 import com.linkedpipes.discovery.model.Application;
-import com.linkedpipes.discovery.model.Dataset;
+import com.linkedpipes.discovery.model.Transformer;
 import com.linkedpipes.discovery.node.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Collect and log discovery statistics.
@@ -22,12 +27,12 @@ public class CollectStatistics implements DiscoveryListener {
 
     private static final int MB = 2014 * 1024;
 
-    private DiscoveryStatistics statistics = null;
+    private Statistics statistics = null;
 
     /**
      * Shortcut for current level.
      */
-    private DiscoveryStatistics.Level levelStatistics;
+    private Statistics.Level levelStatistics;
 
     private Instant nextLogTime = Instant.now().plus(15, ChronoUnit.MINUTES);
 
@@ -35,37 +40,34 @@ public class CollectStatistics implements DiscoveryListener {
 
     private Instant lastLevelStart;
 
-    private Discovery context;
+    private Discovery discovery;
 
-    public void resume(DiscoveryStatistics statistics) {
+    public void resume(Statistics statistics) {
         this.statistics = statistics;
         this.levelStatistics = statistics.levels.get(
                 statistics.levels.size() - 1);
     }
 
     @Override
-    public boolean discoveryWillRun(Discovery context) {
+    public boolean discoveryWillRun(Discovery discovery) {
         if (this.statistics != null) {
             return true;
         }
-        this.statistics = new DiscoveryStatistics();
-        this.context = context;
-        addLevelForRoot(context.getRoot());
+        this.statistics = new Statistics();
+        this.discovery = discovery;
+        addLevelForRoot(discovery.getRoot());
         prepareStatisticsForNewLevel();
         return true;
     }
 
     private void addLevelForRoot(Node root) {
-        DiscoveryStatistics.Level level = new DiscoveryStatistics.Level();
+        Statistics.Level level = new Statistics.Level();
         level.level = 0;
         level.durationInMilliSeconds = 0;
         level.startNodes = 1;
         level.expandedNodes = 1;
         level.filteredNodes = 0;
-        for (Application application : root.getApplications()) {
-            level.applications.add(application);
-            level.pipelinesPerApplication.put(application, 1);
-        }
+        level.applications.addAll(root.getApplications());
         level.nextLevel = root.getNext().size();
         this.levelStatistics = level;
         this.statistics.levels.add(level);
@@ -74,11 +76,11 @@ public class CollectStatistics implements DiscoveryListener {
     private void prepareStatisticsForNewLevel() {
         lastLevelStart = Instant.now();
         int levelIndex = levelStatistics.level + 1;
-        levelStatistics = new DiscoveryStatistics.Level();
+        levelStatistics = new Statistics.Level();
         levelStatistics.level = levelIndex;
         // We know that this is a start of a new level,
         // so all in the queue is content of this level.
-        levelStatistics.startNodes = context.getQueue().size();
+        levelStatistics.startNodes = discovery.getQueue().size();
         statistics.levels.add(levelStatistics);
     }
 
@@ -111,7 +113,7 @@ public class CollectStatistics implements DiscoveryListener {
     private int countNewApplications() {
         int nemApplicationCount = 0;
         for (Application application : levelStatistics.applications) {
-            for (DiscoveryStatistics.Level level : statistics.levels) {
+            for (Statistics.Level level : statistics.levels) {
                 if (level == levelStatistics) {
                     // We made it to current level and we have not
                     // seen the app so far, it must be a new application.
@@ -151,11 +153,6 @@ public class CollectStatistics implements DiscoveryListener {
         if (node.getTransformer() != null) {
             levelStatistics.transformers.add(node.getTransformer());
         }
-        node.getApplications().forEach(application -> {
-            int value = levelStatistics.pipelinesPerApplication
-                    .getOrDefault(application, 0) + 1;
-            levelStatistics.pipelinesPerApplication.put(application, value);
-        });
         logStatisticsIfWeShould();
         return true;
     }
@@ -185,7 +182,7 @@ public class CollectStatistics implements DiscoveryListener {
                 lastExpansionTimeSeconds);
     }
 
-    public DiscoveryStatistics getStatistics() {
+    public Statistics getStatistics() {
         return statistics;
     }
 

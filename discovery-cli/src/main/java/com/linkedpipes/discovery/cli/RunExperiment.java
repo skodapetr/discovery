@@ -1,9 +1,8 @@
 package com.linkedpipes.discovery.cli;
 
 import com.linkedpipes.discovery.SuppressFBWarnings;
-import com.linkedpipes.discovery.cli.export.SummaryExport;
+import com.linkedpipes.discovery.cli.experiment.ExperimentFiles;
 import com.linkedpipes.discovery.cli.factory.BuilderConfiguration;
-import com.linkedpipes.discovery.cli.model.NamedDiscoveryStatistics;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -49,27 +48,22 @@ public class RunExperiment {
         List<String> discoveries = getDiscoveries(experiment);
         LOG.info("Collected {} discoveries in experiment {}",
                 discoveries.size(), experiment);
-        List<NamedDiscoveryStatistics> result = new ArrayList<>();
+        ExperimentFiles experimentFiles = new ExperimentFiles();
         for (int index = 0; index < discoveries.size(); ++index) {
             String name = String.format("%03d", index);
             BuilderConfiguration discoveryConfig = configuration.copy();
             discoveryConfig.output = new File(configuration.output, name);
             RunDiscovery runner = new RunDiscovery(discoveryConfig);
-            var stats = runner.run(discoveries.get(index));
-            // Modify path to reflect location in a subdirectory.
-            // We also replace discovery IRI, instead of {iri}/{???},
-            // we set it to {iri}.
-            // The reason for this is, that old discovery runs a single
-            // discovery for multiple data sources. But we ru a discovery
-            // only for a single data source. We to address that we split
-            // a single discovery into more discoveries using the {???} suffix.
-            for (NamedDiscoveryStatistics statistics : stats) {
-                statistics.name = name + "/" + statistics.name;
-                statistics.discoveryIri = discoveries.get(index);
-            }
-            result.addAll(stats);
+            runner.run(discoveries.get(index),
+                    (discovery, dataset, statistics, discoveryName) -> {
+                        // We update discovery name to reflect
+                        // experiment folder.
+                        experimentFiles.add(
+                                name + "/" + discoveryName,
+                                discovery, dataset, statistics);
+                    });
         }
-        SummaryExport.export(result, configuration.output);
+        experimentFiles.write(configuration.output);
         LOG.info("All done in: {} min",
                 Duration.between(start, Instant.now()).toMinutes());
     }

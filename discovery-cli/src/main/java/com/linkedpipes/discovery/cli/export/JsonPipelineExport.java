@@ -3,6 +3,7 @@ package com.linkedpipes.discovery.cli.export;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.linkedpipes.discovery.Discovery;
+import com.linkedpipes.discovery.model.Application;
 import com.linkedpipes.discovery.model.Dataset;
 import com.linkedpipes.discovery.node.Node;
 
@@ -13,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Export all given nodes, any reduction of redundant nodes must be
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  */
 public class JsonPipelineExport {
 
-    private static class Component {
+    private static class ComponentContainer {
 
         public final String node;
 
@@ -29,7 +29,7 @@ public class JsonPipelineExport {
 
         public final String label;
 
-        public Component(String node, String iri, String label) {
+        public ComponentContainer(String node, String iri, String label) {
             this.node = node;
             this.iri = iri;
             this.label = label;
@@ -37,85 +37,64 @@ public class JsonPipelineExport {
 
     }
 
-    private static class Pipeline {
+    private static class PipelineContainer {
 
-        public final List<Component> components;
+        public final List<ComponentContainer> components;
 
-        public Pipeline(List<Component> components) {
+        public PipelineContainer(List<ComponentContainer> components) {
             this.components = components;
         }
 
     }
 
-    private static class OutputJson {
-
-        public final List<Pipeline> pipelines;
-
-        public OutputJson(List<Pipeline> pipelines) {
-            this.pipelines = pipelines;
-        }
-
-    }
-
     public static void export(
-            Discovery discovery, Dataset dataset,
-            Node root, File outputFile, NodeToName nodeToName)
+            Discovery discovery, Dataset dataset, File outputFile)
             throws IOException {
-        List<Pipeline> pipelines = new ArrayList<>();
-        root.accept((node) -> {
-            pipelines.addAll(nodeToPipelines(
-                    discovery, dataset, nodeToName, root, node));
+        List<PipelineContainer> result = new ArrayList<>();
+        discovery.getRoot().accept(node -> {
+            result.addAll(nodeToPipelines(
+                    dataset, discovery.getRoot(), node));
         });
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        OutputJson outputJson = new OutputJson(pipelines);
         try (var writer = new PrintWriter(outputFile, StandardCharsets.UTF_8)) {
-            objectMapper.writeValue(writer, outputJson);
+            objectMapper.writeValue(writer, result);
         }
     }
 
-    private static List<Pipeline> nodeToPipelines(
-            Discovery discovery, Dataset dataset, NodeToName nodeToName,
-            Node root, Node finalNode) {
-        if (finalNode.getApplications().isEmpty()) {
+    private static List<PipelineContainer> nodeToPipelines(
+            Dataset dataset, Node root, Node node) {
+        if (node.getApplications().isEmpty()) {
             return Collections.emptyList();
         }
-        List<Node> nodes = collectNodesWithoutRoot(finalNode);
-        List<Component> components = new ArrayList<>();
-        // Root as a data source.
-        components.add(new Component(
-                nodeToName.name(root),
-                dataset.iri,
-                "Data source"));
-        // Transformers.
-        for (Node node : nodes) {
-            components.add(new Component(
-                    nodeToName.name(node),
-                    node.getTransformer().iri,
-                    node.getTransformer().title.asString()));
+        List<PipelineContainer> result = new ArrayList<>();
+        List<ComponentContainer> transformers = collectTransformers(node);
+        for (Application application : node.getApplications()) {
+            List<ComponentContainer> components = new ArrayList<>();
+            components.add(new ComponentContainer(
+                    root.getId(),
+                    dataset.iri,
+                    dataset.title.asString()));
+            components.addAll(transformers);
+            components.add(new ComponentContainer(
+                    node.getId(),
+                    application.iri,
+                    application.title.asString()));
+            result.add(new PipelineContainer(components));
         }
-        // Applications.
-        return finalNode.getApplications().stream()
-                .map((app -> {
-                    List<Component> pipeline = new ArrayList<>();
-                    pipeline.addAll(components);
-                    pipeline.add(new Component(
-                            nodeToName.name(finalNode),
-                            app.iri,
-                            app.title.asString()));
-                    return new Pipeline(pipeline);
-                }))
-                .collect(Collectors.toList());
+        return result;
     }
 
-    private static List<Node> collectNodesWithoutRoot(Node node) {
-        List<Node> result = new ArrayList<>();
-        Node prev = node;
-        while (prev != null) {
-            if (prev.getTransformer() != null) {
-                result.add(prev);
+    public static List<ComponentContainer> collectTransformers(Node node) {
+        List<ComponentContainer> result = new ArrayList<>(node.getLevel());
+        while (node != null) {
+            if (node.getTransformer() != null) {
+                result.add(new ComponentContainer(
+                        node.getId(),
+                        node.getTransformer().iri,
+                        node.getTransformer().title.asString()));
             }
-            prev = prev.getPrevious();
+            node = node.getPrevious();
         }
         Collections.reverse(result);
         return result;

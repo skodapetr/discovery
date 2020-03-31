@@ -30,4 +30,11 @@ public class Dataset {
         this.sample = sample;
     }
 
+    public String getSparqlEndpointOr(String defaultValue) {
+        if (configuration == null || configuration.service == null) {
+            return defaultValue;
+        }
+        return configuration.service.endpoint;
+    }
+
 }

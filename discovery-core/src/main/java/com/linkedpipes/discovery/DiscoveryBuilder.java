@@ -26,7 +26,9 @@ import java.util.List;
  */
 public class DiscoveryBuilder {
 
-    private String iri;
+    private final String iri;
+
+    private final String nodePrefix;
 
     private final List<Application> applications;
 
@@ -52,9 +54,11 @@ public class DiscoveryBuilder {
 
     public DiscoveryBuilder(
             String iri,
+            String nodePrefix,
             List<Application> applications, List<Transformer> transformers,
             List<TransformerGroup> groups) {
         this.iri = iri;
+        this.nodePrefix = nodePrefix;
         this.applications = applications;
         this.transformers = transformers;
         this.groups = groups;
@@ -96,7 +100,7 @@ public class DiscoveryBuilder {
     public Discovery createNew() throws DiscoveryException {
         validate();
         Discovery result = new Discovery(
-                iri, applications, transformers, groups,
+                iri, nodePrefix, applications, transformers, groups,
                 store, filter, dataSampleTransformer,
                 registry);
         addListeners(result);
@@ -131,7 +135,7 @@ public class DiscoveryBuilder {
             Discovery context, List<Statement> dataSample)
             throws DiscoveryException {
         SampleRef ref = store.storeRoot(dataSample);
-        Node root = new Node();
+        Node root = new Node(nodePrefix + "root");
         root.setDataSampleRef(ref);
         context.setRoot(root);
     }
@@ -147,6 +151,7 @@ public class DiscoveryBuilder {
         AskNode askNode = new AskNode(
                 applications, transformers, registry);
         return new ExpandNode(
+                nodePrefix + "0_",
                 store, filter, askNode, dataSampleTransformer, registry);
     }
 
@@ -168,7 +173,7 @@ public class DiscoveryBuilder {
     public Discovery resume(File directory) throws DiscoveryException {
         validate();
         Discovery result = new Discovery(
-                iri, applications, transformers, groups,
+                iri, nodePrefix, applications, transformers, groups,
                 store, filter, dataSampleTransformer,
                 registry);
         addListeners(result);

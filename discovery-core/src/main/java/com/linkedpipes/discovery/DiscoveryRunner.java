@@ -30,7 +30,7 @@ public class DiscoveryRunner {
         }
         final Deque<Node> queue = context.getQueue();
         if (queue.isEmpty()) {
-            LOG.info("Nothing to expand.");
+            LOG.info("There are no nodes to expand.");
             return;
         }
         int lastLevel = queue.peek().getLevel();
@@ -55,6 +55,7 @@ public class DiscoveryRunner {
                 context.getTransformers(),
                 context.getRegistry());
         return new ExpandNode(
+                context.getNodePrefix() + "1_",
                 context.getStore(), context.getFilter(), askNode,
                 context.getDataSampleTransformer(), context.getRegistry());
     }

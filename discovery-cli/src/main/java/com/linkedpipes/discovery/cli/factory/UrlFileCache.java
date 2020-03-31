@@ -2,6 +2,8 @@ package com.linkedpipes.discovery.cli.factory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +16,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 class UrlFileCache implements UrlCache {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(UrlFileCache.class);
 
     private final File root;
 
@@ -48,6 +53,7 @@ class UrlFileCache implements UrlCache {
     }
 
     private void download(URL url) throws IOException {
+        LOG.info("Downloading URL: {}", url);
         File dataDir = new File(root, "data");
         dataDir.mkdirs();
         File file = new File(dataDir, String.format("%05d", cache.size()));

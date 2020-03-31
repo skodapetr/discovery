@@ -16,7 +16,7 @@ import java.util.Set;
 @SuppressFBWarnings(value = {
         "UUF_UNUSED_PUBLIC_OR_PROTECTED_FIELD",
         "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"})
-public class DiscoveryStatistics {
+public class Statistics {
 
     public static class Level {
 
@@ -57,13 +57,6 @@ public class DiscoveryStatistics {
         public int nextLevel;
 
         /**
-         * Number of pipelines, i.e. count of all applications on all nodes
-         * in this level.
-         */
-        public Map<Application, Integer>
-                pipelinesPerApplication = new HashMap<>();
-
-        /**
          * Matching application in the level.
          */
         public Set<Application> applications = new HashSet<>();
@@ -82,23 +75,6 @@ public class DiscoveryStatistics {
             nextLevel = 0; // Make no sense on merge.
             applications.addAll(other.applications);
             transformers.addAll(other.transformers);
-            //
-            for (var entry : other.pipelinesPerApplication.entrySet()) {
-                int value = entry.getValue()
-                        + pipelinesPerApplication.getOrDefault(
-                        entry.getKey(), 0);
-                pipelinesPerApplication.put(entry.getKey(), value);
-            }
-        }
-
-        /**
-         * Total number of all pipelines for all applications.
-         */
-        public int pipelinesCount() {
-            return pipelinesPerApplication.values()
-                    .stream()
-                    .reduce(Integer::sum)
-                    .orElseGet(() -> 0);
         }
 
     }

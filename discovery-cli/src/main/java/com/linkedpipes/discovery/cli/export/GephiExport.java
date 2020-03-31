@@ -63,7 +63,6 @@ public final class GephiExport {
 
     public static void export(
             Node root, File edgeFile, File verticesFile,
-            NodeToName nodeToName,
             List<Application> applications,
             List<TransformerGroup> groups)
             throws IOException {
@@ -78,7 +77,7 @@ public final class GephiExport {
             nodes.addAll(node.getNext());
             // Create vertex.
             Vertex vertex = new Vertex(
-                    nodeToName.name(node),
+                    node.getId(),
                     node.getLevel(),
                     collectApps(node, applications),
                     getGroup(node, groups),
