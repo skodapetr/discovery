@@ -56,9 +56,11 @@ public class AppEntry {
         discovery.setRequired(false);
         options.addOption(discovery);
 
+        //
+
         Option output = new Option(
                 "o", "Output", true, "Path to output directory");
-        output.setRequired(true);
+        output.setRequired(false);
         options.addOption(output);
 
         Option filter = new Option(
@@ -121,25 +123,25 @@ public class AppEntry {
             System.out.println(e.getMessage());
             formatter.printHelp("utility-name", options);
             System.exit(1);
-            // IDEA fail to detect above as application end.
+            // Some IDEs fail to detect above as application end.
             throw new RuntimeException();
         }
     }
 
     private BuilderConfiguration loadConfiguration(CommandLine cmd) {
         BuilderConfiguration configuration = new BuilderConfiguration();
-        configuration.levelLimit =
-                Integer.parseInt(cmd.getOptionValue("LevelLimit", "-1"));
-        configuration.output = new File(cmd.getOptionValue("Output"));
-        configuration.filter = cmd.getOptionValue("Filter",
-                BuilderConfiguration.DEFAULT_FILTER);
-        configuration.store = cmd.getOptionValue("Store",
-                BuilderConfiguration.DEFAULT_STORE);
-        configuration.discoveryTimeLimit =
-                Integer.parseInt(
-                        cmd.getOptionValue("DiscoveryTimeLimit", "-1"));
-        if (cmd.hasOption("UrlCache")) {
-            configuration.urlCache = new File(cmd.getOptionValue("UrlCache"));
+        if (cmd.hasOption("Output")) {
+            configuration.output = new File(cmd.getOptionValue("Output"));
+        }
+        if (cmd.hasOption("Filter")) {
+            configuration.filter = cmd.getOptionValue("Filter");
+        }
+        if (cmd.hasOption("LevelLimit")) {
+            configuration.levelLimit =
+                    Integer.parseInt(cmd.getOptionValue("LevelLimit"));
+        }
+        if (cmd.hasOption("StrongGroups")) {
+            configuration.useStrongGroups = true;
         }
         if (cmd.hasOption("IHaveBadDiscoveryDefinition")) {
             configuration.ignoreIssues = true;
@@ -147,11 +149,18 @@ public class AppEntry {
         if (cmd.hasOption("UseMapping")) {
             configuration.useDataSampleMapping = true;
         }
+        if (cmd.hasOption("Store")) {
+            configuration.store = cmd.getOptionValue("Store");
+        }
         if (cmd.hasOption("Resume")) {
             configuration.resume = true;
         }
-        if (cmd.hasOption("StrongGroups")) {
-            configuration.useStrongGroups = true;
+        if (cmd.hasOption("DiscoveryTimeLimit")) {
+            configuration.discoveryTimeLimit =
+                    Integer.parseInt(cmd.getOptionValue("DiscoveryTimeLimit"));
+        }
+        if (cmd.hasOption("UrlCache")) {
+            configuration.urlCache = new File(cmd.getOptionValue("UrlCache"));
         }
         return configuration;
     }

@@ -31,47 +31,51 @@ public class DiscoveriesFromUrl {
 
     }
 
-    protected BuilderConfiguration configuration;
-
     protected String discoveryUrl;
 
-    public DiscoveriesFromUrl(
-            BuilderConfiguration configuration, String discoveryUrl) {
-        this.configuration = configuration;
+    public DiscoveriesFromUrl(String discoveryUrl) {
         this.discoveryUrl = discoveryUrl;
     }
 
-    public void create(MeterRegistry registry, Handler handler)
-            throws Exception {
-        RemoteDefinition definition =
-                new RemoteDefinition(
-                        configuration, discoveryUrl, createUrlCache());
+    public void create(
+            BuilderConfiguration runtimeConfiguration,
+            MeterRegistry registry,
+            Handler handler) throws Exception {
+        RemoteDefinition definition = new RemoteDefinition(
+                runtimeConfiguration, discoveryUrl,
+                createUrlCache(runtimeConfiguration));
+        // Prepare configuration to use.
+        BuilderConfiguration effectiveConfiguration =
+                runtimeConfiguration.copy()
+                        .merge(definition.getRuntimeConfiguration());
+        //
         definition.load();
         List<Dataset> datasets = definition.getDatasets();
         // We force same ordering to allow use of resume.
         datasets.sort(Comparator.comparing(dataset -> dataset.iri));
         for (int index = 0; index < datasets.size(); ++index) {
             String name = "discovery_" + String.format("%03d", index);
-            File directory = new File(configuration.output, name);
+            File directory = new File(runtimeConfiguration.output, name);
             DiscoveryBuilder builder = createDiscoveryBuilder(
                     directory, datasets.get(index),
-                    definition, registry);
+                    definition, registry, effectiveConfiguration);
             //
             Discovery discovery;
-            boolean resume = configuration.resume && directory.exists();
+            boolean resume = runtimeConfiguration.resume && directory.exists();
             if (resume) {
                 discovery = builder.resume(directory);
             } else {
                 discovery = builder.createNew();
             }
             addResourceStrategy(discovery);
-            addOptionalListeners(definition, discovery);
+            addOptionalListeners(
+                    definition, discovery, effectiveConfiguration);
             handler.handle(
                     name, directory, datasets.get(index), resume, discovery);
         }
     }
 
-    private UrlCache createUrlCache() {
+    private UrlCache createUrlCache(BuilderConfiguration configuration) {
         if (configuration.urlCache == null) {
             return UrlCache.noCache();
         } else {
@@ -81,7 +85,8 @@ public class DiscoveriesFromUrl {
 
     private DiscoveryBuilder createDiscoveryBuilder(
             File directory, Dataset dataset,
-            RemoteDefinition definition, MeterRegistry registry) {
+            RemoteDefinition definition, MeterRegistry registry,
+            BuilderConfiguration configuration) {
         DiscoveryBuilder builder = new DiscoveryBuilder(
                 discoveryUrl, getDiscoveryNodePrefix(),
                 definition.getApplications(),
@@ -91,10 +96,12 @@ public class DiscoveriesFromUrl {
             builder.setLevelLimit(configuration.levelLimit);
         }
         builder.setRegistry(registry);
-        SampleStore store = createSampleStore(registry, directory);
-        builder.setFilter(createNodeFilter(store, registry));
+        SampleStore store =
+                createSampleStore(registry, directory, configuration);
+        builder.setFilter(createNodeFilter(store, registry, configuration));
         builder.setStore(store);
-        builder.setDataSampleTransformer(createDataSampleTransformer(registry));
+        builder.setDataSampleTransformer(
+                createDataSampleTransformer(registry, configuration));
         builder.setDataset(dataset);
         if (configuration.discoveryTimeLimit > -1) {
             builder.setTimeLimitInMinutes(configuration.discoveryTimeLimit);
@@ -111,7 +118,8 @@ public class DiscoveriesFromUrl {
     }
 
     protected SampleStore createSampleStore(
-            MeterRegistry meterRegistry, File directory) {
+            MeterRegistry meterRegistry, File directory,
+            BuilderConfiguration configuration) {
         switch (configuration.store) {
             case "memory":
                 return SampleStore.memoryStore();
@@ -127,12 +135,13 @@ public class DiscoveriesFromUrl {
                                 meterRegistry));
             default:
                 throw new RuntimeException(
-                        "Unknown sample store: " + configuration.store);
+                        "Unknown sample store: '" + configuration.store + "'");
         }
     }
 
     protected NodeFilter createNodeFilter(
-            SampleStore sampleStore, MeterRegistry meterRegistry) {
+            SampleStore sampleStore, MeterRegistry meterRegistry,
+            BuilderConfiguration configuration) {
         switch (configuration.filter) {
             case "diff":
                 return new DiffBasedFilter(sampleStore, meterRegistry);
@@ -141,12 +150,13 @@ public class DiscoveriesFromUrl {
             case "no-filter":
                 return new NoFilter();
             default:
-                throw new RuntimeException("Invalid filter name");
+                throw new RuntimeException(
+                        "Invalid filter: '" + configuration.filter + "'");
         }
     }
 
     protected DataSampleTransformer createDataSampleTransformer(
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry, BuilderConfiguration configuration) {
         if (configuration.useDataSampleMapping) {
             return DataSampleTransformer.mapStatements(meterRegistry);
         } else {
@@ -174,7 +184,8 @@ public class DiscoveriesFromUrl {
     }
 
     protected void addOptionalListeners(
-            RemoteDefinition definition, Discovery discovery) {
+            RemoteDefinition definition, Discovery discovery,
+            BuilderConfiguration configuration) {
         if (configuration.useStrongGroups) {
             PruneByStrongGroup pruneByGroup =
                     new PruneByStrongGroup(definition.getGroups());

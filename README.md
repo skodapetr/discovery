@@ -28,7 +28,6 @@ $ java -jar discovery.jar
     - *no-filter* - No filter, explore all states. 
     - *isomorphic* - Use RDF4J isomorphic to compare states. 
     - *diff* -  Use RDF4J isomorphic to compare diffs of states.
-        Currently this is the fastest available filter and is used by default.
 - *--LevelLimit* - Number of iterations to explore, -1 or not provided, to 
     run without a limit. 
 - *--IHaveBadDiscoveryDefinition* - Can be used to ignore issues with Discovery 
@@ -46,6 +45,24 @@ $ java -jar discovery.jar
         group is explored first before other transformers can be applied.  
 - *--UrlCache* - Can be used to locally remote data to speed up loading
         of definitions on slower internet connections. 
+        
+Arguments can also be defined as a part of a discovery as shown in the 
+following bellow:
+```
+<urn:discovery> a <https://discovery.linkedpipes.com/vocabulary/discovery/Input> ;
+    <urn:DiscoveryConfiguration> [
+        <urn:output> "./output" ;
+        <urn:filter> "diff" ;
+        <urn:store> "memory" ;
+        <urn:useMapping> true ;
+        <urn:strongGroups> true 
+    ] ;
+.
+```
+Other arguments can be used in similar way except *IHaveBadDiscoveryDefinition*.
+The arguments defined on command line do override arguments defined as 
+a part of a discovery definition.
+        
 [Java]: <http://www.oracle.com/technetwork/java/javase/downloads/index.html>
 [Git]: <https://git-scm.com/>
 [Maven]: <https://maven.apache.org/>

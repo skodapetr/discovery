@@ -4,33 +4,29 @@ import java.io.File;
 
 public class BuilderConfiguration {
 
-    public static final String DEFAULT_FILTER = "diff";
-
-    public static final String DEFAULT_STORE = "memory-disk";
-
     public static final int DEFAULT_MAX_NODE_EXPANSION = 5;
 
-    public int levelLimit;
+    public Integer levelLimit;
 
     public File output;
 
-    public String filter = DEFAULT_FILTER;
+    public String filter;
 
-    public boolean ignoreIssues = false;
+    public Boolean ignoreIssues;
 
-    public boolean useDataSampleMapping = false;
+    public Boolean useDataSampleMapping;
 
-    public String store = DEFAULT_STORE;
+    public String store;
 
-    public int maxNodeExpansionTimeSeconds = DEFAULT_MAX_NODE_EXPANSION;
+    public Integer maxNodeExpansionTimeSeconds = DEFAULT_MAX_NODE_EXPANSION;
 
-    public boolean resume = false;
+    public Boolean resume;
 
-    public int discoveryTimeLimit = -1;
+    public Integer discoveryTimeLimit;
 
-    public boolean useStrongGroups = false;
+    public Boolean useStrongGroups;
 
-    public File urlCache = null;
+    public File urlCache;
 
     public File reportFile() {
         if (!ignoreIssues) {
@@ -50,6 +46,40 @@ public class BuilderConfiguration {
         result.resume = resume;
         result.discoveryTimeLimit = discoveryTimeLimit;
         return result;
+    }
+
+    public BuilderConfiguration merge(BuilderConfiguration configuration) {
+        if (levelLimit == null) {
+            levelLimit = configuration.levelLimit;
+        }
+        if (output == null) {
+            output = configuration.output;
+        }
+        if (filter == null) {
+            filter = configuration.filter;
+        }
+        if (ignoreIssues == null) {
+            ignoreIssues = configuration.ignoreIssues;
+        }
+        if (useDataSampleMapping == null) {
+            useDataSampleMapping = configuration.useDataSampleMapping;
+        }
+        if (store == null) {
+            store = configuration.store;
+        }
+        if (resume == null) {
+            resume = configuration.resume;
+        }
+        if (discoveryTimeLimit == null) {
+            discoveryTimeLimit = configuration.discoveryTimeLimit;
+        }
+        if (useStrongGroups == null) {
+            useStrongGroups = configuration.useStrongGroups;
+        }
+        if (urlCache == null) {
+            urlCache = configuration.urlCache;
+        }
+        return this;
     }
 
 }

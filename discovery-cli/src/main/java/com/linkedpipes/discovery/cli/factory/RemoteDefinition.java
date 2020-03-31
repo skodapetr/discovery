@@ -8,6 +8,7 @@ import com.linkedpipes.discovery.model.TransformerGroup;
 import com.linkedpipes.discovery.rdf.RdfAdapter;
 import com.linkedpipes.discovery.rdf.UnexpectedInput;
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -41,6 +42,8 @@ public class RemoteDefinition {
 
     private static final IRI INPUT;
 
+    public static final IRI HAS_CONFIGURATION;
+
     static {
         SimpleValueFactory valueFactory = SimpleValueFactory.getInstance();
         HAS_TEMPLATE = valueFactory.createIRI(
@@ -57,9 +60,20 @@ public class RemoteDefinition {
                         + "hasTransformerGroup");
         INPUT = valueFactory.createIRI(
                 "https://discovery.linkedpipes.com/vocabulary/discovery/Input");
+        HAS_CONFIGURATION = valueFactory.createIRI(
+                "urn:DiscoveryConfiguration");
     }
 
-    protected BuilderConfiguration configuration;
+    /**
+     * Configuration as provided from a command line.
+     */
+    private BuilderConfiguration configuration;
+
+    /**
+     * Configuration loaded from a definition.
+     */
+    private BuilderConfiguration runtimeConfiguration
+            = new BuilderConfiguration();
 
     private String iri;
 
@@ -141,6 +155,11 @@ public class RemoteDefinition {
             } else if (HAS_TRANSFORMER_GROUP.equals(statement.getPredicate())) {
                 if (statement.getObject() instanceof Resource) {
                     onTransformerGroup(
+                            (Resource) statement.getObject(), statements);
+                }
+            } else if (HAS_CONFIGURATION.equals(statement.getPredicate())) {
+                if (statement.getObject() instanceof Resource) {
+                    onConfiguration(
                             (Resource) statement.getObject(), statements);
                 }
             }
@@ -253,6 +272,49 @@ public class RemoteDefinition {
         }
     }
 
+    private void onConfiguration(
+            Resource resource, List<Statement> statements) {
+        for (Statement statement : statements) {
+            if (!statement.getSubject().equals(resource)) {
+                continue;
+            }
+            //
+            if (!(statement.getSubject() instanceof Literal)) {
+                continue;
+            }
+            Literal value = (Literal) statement.getObject();
+            switch (statement.getPredicate().stringValue()) {
+                case "urn:levelLimit":
+                    configuration.levelLimit = value.intValue();
+                    break;
+                case "urn:output":
+                    configuration.output = new File(value.stringValue());
+                    break;
+                case "urn:filter":
+                    configuration.filter = value.stringValue();
+                    break;
+                case "urn:useDataSampleMapping":
+                    configuration.useDataSampleMapping = value.booleanValue();
+                    break;
+                case "urn:store":
+                    configuration.store = value.stringValue();
+                    break;
+                case "urn:resume":
+                    configuration.resume = value.booleanValue();
+                    break;
+                case "urn:discoveryTimeLimit":
+                    configuration.discoveryTimeLimit = value.intValue();
+                    break;
+                case "urn:useStrongGroups":
+                    configuration.useStrongGroups = value.booleanValue();
+                    break;
+                case "urn:urlCache":
+                    configuration.urlCache = new File(value.stringValue());
+                    break;
+            }
+        }
+    }
+
     public String getIri() {
         return iri;
     }
@@ -271,6 +333,10 @@ public class RemoteDefinition {
 
     public List<TransformerGroup> getGroups() {
         return groups;
+    }
+
+    public BuilderConfiguration getRuntimeConfiguration() {
+        return runtimeConfiguration;
     }
 
 }
