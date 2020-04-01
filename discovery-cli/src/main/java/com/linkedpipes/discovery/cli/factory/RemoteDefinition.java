@@ -73,7 +73,7 @@ public class RemoteDefinition {
      * Configuration loaded from a definition.
      */
     private BuilderConfiguration runtimeConfiguration
-            = new BuilderConfiguration();
+            = BuilderConfiguration.defaultConfiguration();
 
     private String iri;
 
@@ -310,6 +310,11 @@ public class RemoteDefinition {
                     break;
                 case "urn:urlCache":
                     configuration.urlCache = new File(value.stringValue());
+                    break;
+                default:
+                    LOG.warn(
+                            "Unknown configuration predicate: {}",
+                            statement.getPredicate().stringValue());
                     break;
             }
         }

@@ -67,9 +67,9 @@ class RunDiscovery {
 
     private void runDiscoveriesFromUrl(
             String discoveryUrl, MeterRegistry registry) throws Exception {
-        DiscoveriesFromUrl discoveriesFromUrl = new DiscoveriesFromUrl(
-                configuration, discoveryUrl);
-        discoveriesFromUrl.create(registry,
+        DiscoveriesFromUrl discoveriesFromUrl =
+                new DiscoveriesFromUrl(discoveryUrl);
+        discoveriesFromUrl.create(configuration, registry,
                 ((name, directory, dataset, resumed, discovery) -> {
                     if (isFinished(directory)) {
                         loadFinishedExecution(

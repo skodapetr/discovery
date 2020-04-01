@@ -15,7 +15,7 @@ $ mvn install
 ## How to run 
 ```
 $ cd deploy
-$ java -jar discovery.jar
+$ java -jar discovery.jar -d {path to discovery IRI}
 ```
 
 ### Arguments
@@ -23,18 +23,19 @@ $ java -jar discovery.jar
    consists of multiple discoveries.
 - *-d*, *--Discovery* - URL of discovery specification. A dataset, 
     applications and transformers are loaded from the discovery definition.
-- *-o*, *--Output* - Output directory. 
-- *--Filter* - Name of filter to use. Available values:
+- *-o*, *--Output* (**default**: *./output*) - Output directory. 
+- *--Filter* (**default**: *diff*) - Name of filter to use. Available values:
     - *no-filter* - No filter, explore all states. 
     - *isomorphic* - Use RDF4J isomorphic to compare states. 
-    - *diff* -  Use RDF4J isomorphic to compare diffs of states.
+    - *diff* - Use RDF4J isomorphic to compare diffs of states.
 - *--LevelLimit* - Number of iterations to explore, -1 or not provided, to 
     run without a limit. 
 - *--IHaveBadDiscoveryDefinition* - Can be used to ignore issues with Discovery 
     definition, can be used only with *-d*/*--discovery* option.
 - *--UseMapping* - Can be used to map results from SPARQL construct. This
-    may reduce memory usage, but require extra CPU to perform the mappings.
-- *--Store* - Name of store strategy  used to store statements. Available values:
+    highly reduce memory usage, but require extra CPU to perform the mappings.
+    Use of this option is recommended for most scenarios.
+- *--Store* (**default**: *memory*) - Name of store strategy  used to store statements. Available values:
     - *memory* - Store all in memory, fastest store using most memory.
     - *disk* - Store all samples into files. Slowest but with smallest memory
         consumption.
@@ -45,7 +46,7 @@ $ java -jar discovery.jar
         group is explored first before other transformers can be applied.  
 - *--UrlCache* - Can be used to locally remote data to speed up loading
         of definitions on slower internet connections. 
-        
+
 Arguments can also be defined as a part of a discovery as shown in the 
 following bellow:
 ```

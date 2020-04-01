@@ -12,19 +12,22 @@ public class BuilderConfiguration {
 
     public String filter;
 
-    public Boolean ignoreIssues;
+    /**
+     * We need this option for reading definition so it can not be null.
+     */
+    public boolean ignoreIssues = false;
 
-    public Boolean useDataSampleMapping;
+    public boolean useDataSampleMapping = false;
 
     public String store;
 
     public Integer maxNodeExpansionTimeSeconds = DEFAULT_MAX_NODE_EXPANSION;
 
-    public Boolean resume;
+    public boolean resume = false;
 
     public Integer discoveryTimeLimit;
 
-    public Boolean useStrongGroups;
+    public boolean useStrongGroups = false;
 
     public File urlCache;
 
@@ -58,28 +61,28 @@ public class BuilderConfiguration {
         if (filter == null) {
             filter = configuration.filter;
         }
-        if (ignoreIssues == null) {
-            ignoreIssues = configuration.ignoreIssues;
-        }
-        if (useDataSampleMapping == null) {
-            useDataSampleMapping = configuration.useDataSampleMapping;
-        }
+        ignoreIssues |= configuration.ignoreIssues;
+        useDataSampleMapping |= configuration.useDataSampleMapping;
         if (store == null) {
             store = configuration.store;
         }
-        if (resume == null) {
-            resume = configuration.resume;
-        }
+        resume |= configuration.resume;
         if (discoveryTimeLimit == null) {
             discoveryTimeLimit = configuration.discoveryTimeLimit;
         }
-        if (useStrongGroups == null) {
-            useStrongGroups = configuration.useStrongGroups;
-        }
+        useStrongGroups |= configuration.useStrongGroups;
         if (urlCache == null) {
             urlCache = configuration.urlCache;
         }
         return this;
+    }
+
+    public static BuilderConfiguration defaultConfiguration() {
+        BuilderConfiguration result = new BuilderConfiguration();
+        result.output = new File("./output");
+        result.filter = "diff";
+        result.store = "memory";
+        return result;
     }
 
 }

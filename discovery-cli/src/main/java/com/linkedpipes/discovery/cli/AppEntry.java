@@ -59,13 +59,15 @@ public class AppEntry {
         //
 
         Option output = new Option(
-                "o", "Output", true, "Path to output directory");
+                "o", "Output", true,
+                "Path to output directory. Default: 'output'");
         output.setRequired(false);
         options.addOption(output);
 
         Option filter = new Option(
-                null, "Filter", true, "Filter strategy. Values: "
-                + "'no-filter', 'isomorphic', 'diff'");
+                null, "Filter", true,
+                "Filter strategy. Values: "
+                        + "'no-filter', 'isomorphic', 'diff'");
         filter.setRequired(false);
         options.addOption(filter);
 
@@ -93,8 +95,10 @@ public class AppEntry {
         options.addOption(useMapping);
 
         Option store = new Option(
-                null, "Store", true, "Store strategy. Values: "
-                + "'memory', 'diff', 'disk', 'cache-memory-disk'");
+                null, "Store", true,
+                "Store strategy. Values: "
+                        + "'memory', 'disk', 'memory-disk'. "
+                        + "Default: 'memory'");
         store.setRequired(false);
         options.addOption(store);
 
