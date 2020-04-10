@@ -92,7 +92,8 @@ public class DiscoveriesFromUrl {
                 definition.getApplications(),
                 definition.getTransformers(),
                 definition.getGroups());
-        if (configuration.levelLimit > -1) {
+        if (configuration.levelLimit != null
+                && configuration.levelLimit > -1) {
             builder.setLevelLimit(configuration.levelLimit);
         }
         builder.setRegistry(registry);
@@ -103,10 +104,12 @@ public class DiscoveriesFromUrl {
         builder.setDataSampleTransformer(
                 createDataSampleTransformer(registry, configuration));
         builder.setDataset(dataset);
-        if (configuration.discoveryTimeLimit > -1) {
+        if (configuration.discoveryTimeLimit != null
+                && configuration.discoveryTimeLimit > -1) {
             builder.setTimeLimitInMinutes(configuration.discoveryTimeLimit);
         }
-        if (configuration.maxNodeExpansionTimeSeconds > -1) {
+        if (configuration.maxNodeExpansionTimeSeconds != null
+                && configuration.maxNodeExpansionTimeSeconds > -1) {
             builder.setMaxNodeExpansionTimeMs(
                     configuration.maxNodeExpansionTimeSeconds * 1000);
         }
