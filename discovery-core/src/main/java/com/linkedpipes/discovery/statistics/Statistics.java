@@ -23,7 +23,7 @@ public class Statistics {
         /**
          * Duration spend on discovery.
          */
-        public int durationInMilliSeconds;
+        public long durationInMilliSeconds;
 
         /**
          * Starting from zero (root) denote the level in the exploration tree.

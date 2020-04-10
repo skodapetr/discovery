@@ -18,7 +18,9 @@ import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Entry point for running experiments ~ collections of discoveries.
@@ -49,7 +51,9 @@ public class RunExperiment {
         LOG.info("Collected {} discoveries in experiment {}",
                 discoveries.size(), experiment);
         ExperimentFiles experimentFiles = new ExperimentFiles();
+        Map<String, Long> discoveryDurationsInSeconds = new HashMap<>();
         for (int index = 0; index < discoveries.size(); ++index) {
+            Instant discoveryStart = Instant.now();
             String name = String.format("%03d", index);
             BuilderConfiguration discoveryConfig = configuration.copy();
             discoveryConfig.output = new File(configuration.output, name);
@@ -62,8 +66,13 @@ public class RunExperiment {
                                 name + "/" + discoveryName,
                                 discovery, dataset, statistics);
                     });
+            discoveryDurationsInSeconds.put(
+                    discoveries.get(index),
+                    Duration.between(discoveryStart, Instant.now())
+                            .getSeconds());
         }
-        experimentFiles.write(configuration.output);
+        experimentFiles.write(
+                configuration.output, discoveryDurationsInSeconds);
         LOG.info("All done in: {} min",
                 Duration.between(start, Instant.now()).toMinutes());
     }

@@ -8,17 +8,22 @@ import com.linkedpipes.discovery.statistics.Statistics;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ExperimentFiles {
 
-    private final List<CsvFile> csvFiles = Arrays.asList(
-            new ApplicationDiscoveryFile(),
-            new DatasetApplicationDiscoveryFile(),
-            new DiscoveryDatasetFile(),
-            new DiscoveryFile()
-    );
+    private final List<CsvFile> csvFiles = new ArrayList<>();
+
+    private final DiscoveryFile discoveryFile = new DiscoveryFile();
+
+    public ExperimentFiles() {
+        csvFiles.add(new ApplicationDiscoveryFile());
+        csvFiles.add(new DatasetApplicationDiscoveryFile());
+        csvFiles.add(new DiscoveryDatasetFile());
+        csvFiles.add(discoveryFile);
+    }
 
     public void add(
             String path, Discovery discovery, Dataset dataset,
@@ -31,7 +36,10 @@ public class ExperimentFiles {
         }
     }
 
-    public void write(File directory) throws IOException {
+    public void write(
+            File directory, Map<String, Long> durationsInSeconds)
+            throws IOException {
+        discoveryFile.addDiscoveryDurations(durationsInSeconds);
         for (CsvFile csfFile : csvFiles) {
             csfFile.write(directory);
         }

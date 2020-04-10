@@ -96,7 +96,7 @@ public class StatisticsAdapter {
     private Statistics.Level loadLevel(
             Discovery discovery, JsonNode levelNode) {
         Statistics.Level result = new Statistics.Level();
-        result.durationInMilliSeconds = levelNode.get("duration").asInt();
+        result.durationInMilliSeconds = levelNode.get("duration").asLong();
         result.level = levelNode.get("level").asInt();
         result.startNodes = levelNode.get("startNodes").asInt();
         result.expandedNodes = levelNode.get("expandedNodes").asInt();

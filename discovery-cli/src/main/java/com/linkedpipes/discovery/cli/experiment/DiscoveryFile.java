@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,7 +24,12 @@ class DiscoveryFile extends CsvFile {
 
         public int pipelineCount;
 
-        private long durationInSeconds;
+        /**
+         * This property is set in {@link #addDiscoveryDurations}.
+         */
+        private long totalDurationInSeconds;
+
+        private long discoveryDurationInSeconds;
 
         private final Set<String> applications = new HashSet<>();
 
@@ -49,7 +55,8 @@ class DiscoveryFile extends CsvFile {
             return new String[]{
                     discovery,
                     Integer.toString(pipelineCount),
-                    Long.toString(durationInSeconds),
+                    Long.toString(totalDurationInSeconds),
+                    Long.toString(discoveryDurationInSeconds),
                     Integer.toString(applications.size()),
                     Integer.toString(usedInPipelineApplications.size()),
                     Integer.toString(datasets.size()),
@@ -75,7 +82,8 @@ class DiscoveryFile extends CsvFile {
         return new String[]{
                 "discovery",
                 "pipelines count",
-                "time (s)",
+                "time (s) total",
+                "time (s) discovery",
                 "applications count",
                 "used in pipelines applications count",
                 "datasets counts",
@@ -98,7 +106,7 @@ class DiscoveryFile extends CsvFile {
             Statistics statistics, List<Pipeline> pipelines) {
         Line line = getLine(discovery);
         line.pipelineCount += pipelines.size();
-        line.durationInSeconds +=
+        line.discoveryDurationInSeconds +=
                 statistics.aggregate().durationInMilliSeconds / 1000;
         // All available.
         line.applications.addAll(appAsIri(discovery.getApplications()));
@@ -151,6 +159,13 @@ class DiscoveryFile extends CsvFile {
             result.addAll(pipeline.transformers);
         }
         return result;
+    }
+
+    public void addDiscoveryDurations(Map<String, Long> durationInSeconds) {
+        for (Line line : lines) {
+            long duration = durationInSeconds.getOrDefault(line.discovery, 0L);
+            line.totalDurationInSeconds += duration;
+        }
     }
 
 }
