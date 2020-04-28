@@ -160,7 +160,7 @@ public class AppEntry {
             configuration.resume = true;
         }
         if (cmd.hasOption("DiscoveryTimeLimit")) {
-            configuration.discoveryTimeLimit =
+            configuration.discoveryTimeLimitMinutes =
                     Integer.parseInt(cmd.getOptionValue("DiscoveryTimeLimit"));
         }
         if (cmd.hasOption("UrlCache")) {

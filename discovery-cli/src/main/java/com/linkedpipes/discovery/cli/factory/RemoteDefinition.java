@@ -307,7 +307,8 @@ public class RemoteDefinition {
                     runtimeConfiguration.resume = value.booleanValue();
                     break;
                 case "urn:discoveryTimeLimit":
-                    runtimeConfiguration.discoveryTimeLimit = value.intValue();
+                    runtimeConfiguration.discoveryTimeLimitMinutes =
+                            value.intValue();
                     break;
                 case "urn:useStrongGroups":
                     runtimeConfiguration.useStrongGroups = value.booleanValue();

@@ -25,7 +25,7 @@ public class BuilderConfiguration {
 
     public boolean resume = false;
 
-    public Integer discoveryTimeLimit;
+    public Integer discoveryTimeLimitMinutes;
 
     public boolean useStrongGroups = false;
 
@@ -47,7 +47,7 @@ public class BuilderConfiguration {
         result.useDataSampleMapping = useDataSampleMapping;
         result.store = store;
         result.resume = resume;
-        result.discoveryTimeLimit = discoveryTimeLimit;
+        result.discoveryTimeLimitMinutes = discoveryTimeLimitMinutes;
         return result;
     }
 
@@ -69,8 +69,9 @@ public class BuilderConfiguration {
             result.store = configuration.store;
         }
         result.resume |= configuration.resume;
-        if (result.discoveryTimeLimit == null) {
-            result.discoveryTimeLimit = configuration.discoveryTimeLimit;
+        if (result.discoveryTimeLimitMinutes == null) {
+            result.discoveryTimeLimitMinutes =
+                    configuration.discoveryTimeLimitMinutes;
         }
         result.useStrongGroups |= configuration.useStrongGroups;
         if (result.urlCache == null) {

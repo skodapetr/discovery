@@ -14,12 +14,17 @@ import com.linkedpipes.discovery.sample.DataSampleTransformer;
 import com.linkedpipes.discovery.sample.store.HierarchicalStore;
 import com.linkedpipes.discovery.sample.store.SampleStore;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Comparator;
 import java.util.List;
 
 public class DiscoveriesFromUrl {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DiscoveriesFromUrl.class);
 
     @FunctionalInterface
     public interface Handler {
@@ -49,6 +54,7 @@ public class DiscoveriesFromUrl {
         BuilderConfiguration effectiveConfiguration =
                 configuration.mergeWithRuntime(
                         definition.getRuntimeConfiguration());
+        logConfiguration(effectiveConfiguration);
         List<Dataset> datasets = definition.getDatasets();
         // We force same ordering to allow use of resume.
         datasets.sort(Comparator.comparing(dataset -> dataset.iri));
@@ -82,6 +88,25 @@ public class DiscoveriesFromUrl {
         }
     }
 
+    private void logConfiguration(BuilderConfiguration configuration) {
+        LOG.info(
+                "Using configuration:"
+                        + "\n    level limit       : {}"
+                        + "\n    output            : {}"
+                        + "\n    filter            : {}"
+                        + "\n    use mapping       : {}"
+                        + "\n    store             : {}"
+                        + "\n    time limit        : {} min"
+                        + "\n    use strong groups : {}",
+                configuration.levelLimit,
+                configuration.output,
+                configuration.filter,
+                configuration.useDataSampleMapping,
+                configuration.store,
+                configuration.discoveryTimeLimitMinutes,
+                configuration.useStrongGroups);
+    }
+
     private DiscoveryBuilder createDiscoveryBuilder(
             File directory, Dataset dataset,
             RemoteDefinition definition, MeterRegistry registry,
@@ -103,9 +128,10 @@ public class DiscoveriesFromUrl {
         builder.setDataSampleTransformer(
                 createDataSampleTransformer(registry, configuration));
         builder.setDataset(dataset);
-        if (configuration.discoveryTimeLimit != null
-                && configuration.discoveryTimeLimit > -1) {
-            builder.setTimeLimitInMinutes(configuration.discoveryTimeLimit);
+        if (configuration.discoveryTimeLimitMinutes != null
+                && configuration.discoveryTimeLimitMinutes > -1) {
+            builder.setTimeLimitInMinutes(
+                    configuration.discoveryTimeLimitMinutes);
         }
         if (configuration.maxNodeExpansionTimeSeconds != null
                 && configuration.maxNodeExpansionTimeSeconds > -1) {
