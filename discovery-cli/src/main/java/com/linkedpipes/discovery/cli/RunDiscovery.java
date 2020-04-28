@@ -120,10 +120,10 @@ class RunDiscovery {
         // Save resume data if we have not searched all.
         DiscoveryAdapter discoveryAdapter = new DiscoveryAdapter();
         if (!discovery.getQueue().isEmpty()) {
-            LOG.info("Saving resume data.");
+            LOG.info("Saving resume data");
             discoveryAdapter.saveForResume(discovery, directory);
         } else {
-            LOG.info("Saving exploration results.");
+            LOG.info("Saving exploration results");
             discoveryAdapter.saveFinishedDiscovery(discovery, directory);
             statisticsAdapter.save(
                     collectStatistics.getStatistics(), directory);

@@ -24,13 +24,13 @@ public class DiscoveryRunner {
         LOG.info("Running discovery {}", context.getIri());
         ExpandNode expander = createExpander(context);
         if (!onDiscoveryWillRun(context)) {
-            LOG.info("Aborting discovery.");
+            LOG.info("Aborting discovery");
             onDiscoveryDidRun(context);
             return;
         }
         final Deque<Node> queue = context.getQueue();
         if (queue.isEmpty()) {
-            LOG.info("There are no nodes to expand.");
+            LOG.info("There are no nodes to expand");
             return;
         }
         int lastLevel = queue.peek().getLevel();
@@ -46,7 +46,7 @@ public class DiscoveryRunner {
             lastLevel++;
         }
         onDiscoveryDidRun(context);
-        LOG.info("Discovery finished.");
+        LOG.info("Discovery finished");
     }
 
     private ExpandNode createExpander(Discovery context) {

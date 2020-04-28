@@ -47,22 +47,28 @@ $ java -jar discovery.jar -d {path to discovery IRI}
 - *--UrlCache* - Can be used to locally remote data to speed up loading
         of definitions on slower internet connections. 
 
-Arguments can also be defined as a part of a discovery as shown in the 
-following bellow:
+Arguments can also be defined as a part of a discovery/experiment
+as shown in the following bellow:
 ```
 <urn:discovery> a <https://discovery.linkedpipes.com/vocabulary/discovery/Input> ;
     <urn:DiscoveryConfiguration> [
-        <urn:output> "./output" ;
         <urn:filter> "diff" ;
         <urn:store> "memory" ;
-        <urn:useMapping> true ;
-        <urn:strongGroups> true 
+        <urn:useDataSampleMapping> true ;
+        <urn:useStrongGroups> true 
+    ] ;
+
+<urn:expeeriment> a <https://discovery.linkedpipes.com/vocabulary/experiment/Experiment> ;
+    <urn:DiscoveryConfiguration> [
+        <urn:output> "./output" ;
     ] ;
 .
 ```
-Other arguments can be used in similar way except *IHaveBadDiscoveryDefinition*.
-The arguments defined on command line do override arguments defined as 
-a part of a discovery definition.
+The experiment configuration supports only *Output* predicate.
+Discovery supports all arguments except *IHaveBadDiscoveryDefinition*.
+If a discovery runs as a part of an experiment, the discovery *Output*
+predicate is ignored. The arguments defined on command line do override
+arguments defined as a part of a discovery definition. 
         
 [Java]: <http://www.oracle.com/technetwork/java/javase/downloads/index.html>
 [Git]: <https://git-scm.com/>

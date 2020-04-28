@@ -135,7 +135,7 @@ public class AppEntry {
     private BuilderConfiguration loadConfiguration(CommandLine cmd) {
         BuilderConfiguration configuration = new BuilderConfiguration();
         if (cmd.hasOption("Output")) {
-            configuration.output = new File(cmd.getOptionValue("Output"));
+            configuration.output = cmd.getOptionValue("Output");
         }
         if (cmd.hasOption("Filter")) {
             configuration.filter = cmd.getOptionValue("Filter");

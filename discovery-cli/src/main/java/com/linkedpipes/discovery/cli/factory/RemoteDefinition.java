@@ -67,25 +67,25 @@ public class RemoteDefinition {
     /**
      * Configuration as provided from a command line.
      */
-    private BuilderConfiguration configuration;
+    private final BuilderConfiguration configuration;
 
     /**
      * Configuration loaded from a definition.
      */
-    private BuilderConfiguration runtimeConfiguration
+    private final BuilderConfiguration runtimeConfiguration
             = BuilderConfiguration.defaultConfiguration();
 
     private String iri;
 
     private final String discoveryUrl;
 
-    private List<Dataset> datasets = new ArrayList<>();
+    private final List<Dataset> datasets = new ArrayList<>();
 
-    private List<Application> applications = new ArrayList<>();
+    private final List<Application> applications = new ArrayList<>();
 
-    private List<Transformer> transformers = new ArrayList<>();
+    private final List<Transformer> transformers = new ArrayList<>();
 
-    private List<TransformerGroup> groups = new ArrayList<>();
+    private final List<TransformerGroup> groups = new ArrayList<>();
 
     private final UrlCache cache;
 
@@ -274,42 +274,47 @@ public class RemoteDefinition {
 
     private void onConfiguration(
             Resource resource, List<Statement> statements) {
+        LOG.info(
+                "Loading discovery configuration from: {}",
+                resource.stringValue());
         for (Statement statement : statements) {
             if (!statement.getSubject().equals(resource)) {
                 continue;
             }
             //
-            if (!(statement.getSubject() instanceof Literal)) {
+            if (!(statement.getObject() instanceof Literal)) {
                 continue;
             }
             Literal value = (Literal) statement.getObject();
             switch (statement.getPredicate().stringValue()) {
                 case "urn:levelLimit":
-                    configuration.levelLimit = value.intValue();
+                    runtimeConfiguration.levelLimit = value.intValue();
                     break;
                 case "urn:output":
-                    configuration.output = new File(value.stringValue());
+                    runtimeConfiguration.output = value.stringValue();
                     break;
                 case "urn:filter":
-                    configuration.filter = value.stringValue();
+                    runtimeConfiguration.filter = value.stringValue();
                     break;
                 case "urn:useDataSampleMapping":
-                    configuration.useDataSampleMapping = value.booleanValue();
+                    runtimeConfiguration.useDataSampleMapping =
+                            value.booleanValue();
                     break;
                 case "urn:store":
-                    configuration.store = value.stringValue();
+                    runtimeConfiguration.store = value.stringValue();
                     break;
                 case "urn:resume":
-                    configuration.resume = value.booleanValue();
+                    runtimeConfiguration.resume = value.booleanValue();
                     break;
                 case "urn:discoveryTimeLimit":
-                    configuration.discoveryTimeLimit = value.intValue();
+                    runtimeConfiguration.discoveryTimeLimit = value.intValue();
                     break;
                 case "urn:useStrongGroups":
-                    configuration.useStrongGroups = value.booleanValue();
+                    runtimeConfiguration.useStrongGroups = value.booleanValue();
                     break;
                 case "urn:urlCache":
-                    configuration.urlCache = new File(value.stringValue());
+                    runtimeConfiguration.urlCache =
+                            new File(value.stringValue());
                     break;
                 default:
                     LOG.warn(

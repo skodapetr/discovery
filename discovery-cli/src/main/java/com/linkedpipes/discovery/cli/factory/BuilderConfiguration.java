@@ -8,7 +8,7 @@ public class BuilderConfiguration {
 
     public Integer levelLimit;
 
-    public File output;
+    public String output;
 
     public String filter;
 
@@ -51,35 +51,37 @@ public class BuilderConfiguration {
         return result;
     }
 
-    public BuilderConfiguration merge(BuilderConfiguration configuration) {
-        if (levelLimit == null) {
-            levelLimit = configuration.levelLimit;
+    public BuilderConfiguration mergeWithRuntime(
+            BuilderConfiguration configuration) {
+        BuilderConfiguration result = this.copy();
+        if (result.levelLimit == null) {
+            result.levelLimit = configuration.levelLimit;
         }
-        if (output == null) {
-            output = configuration.output;
+        if (result.output == null) {
+            result.output = configuration.output;
         }
-        if (filter == null) {
-            filter = configuration.filter;
+        if (result.filter == null) {
+            result.filter = configuration.filter;
         }
-        ignoreIssues |= configuration.ignoreIssues;
-        useDataSampleMapping |= configuration.useDataSampleMapping;
-        if (store == null) {
-            store = configuration.store;
+        result.ignoreIssues |= configuration.ignoreIssues;
+        result.useDataSampleMapping |= configuration.useDataSampleMapping;
+        if (result.store == null) {
+            result.store = configuration.store;
         }
-        resume |= configuration.resume;
-        if (discoveryTimeLimit == null) {
-            discoveryTimeLimit = configuration.discoveryTimeLimit;
+        result.resume |= configuration.resume;
+        if (result.discoveryTimeLimit == null) {
+            result.discoveryTimeLimit = configuration.discoveryTimeLimit;
         }
-        useStrongGroups |= configuration.useStrongGroups;
-        if (urlCache == null) {
-            urlCache = configuration.urlCache;
+        result.useStrongGroups |= configuration.useStrongGroups;
+        if (result.urlCache == null) {
+            result.urlCache = configuration.urlCache;
         }
-        return this;
+        return result;
     }
 
     public static BuilderConfiguration defaultConfiguration() {
         BuilderConfiguration result = new BuilderConfiguration();
-        result.output = new File("./output");
+        result.output = "./output";
         result.filter = "diff";
         result.store = "memory";
         return result;

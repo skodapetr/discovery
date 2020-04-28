@@ -38,30 +38,29 @@ public class DiscoveriesFromUrl {
     }
 
     public void create(
-            BuilderConfiguration runtimeConfiguration,
+            BuilderConfiguration configuration,
             MeterRegistry registry,
             Handler handler) throws Exception {
         RemoteDefinition definition = new RemoteDefinition(
-                runtimeConfiguration, discoveryUrl,
-                createUrlCache(runtimeConfiguration));
+                configuration, discoveryUrl,
+                createUrlCache(configuration));
+        definition.load();
         // Prepare configuration to use.
         BuilderConfiguration effectiveConfiguration =
-                runtimeConfiguration.copy()
-                        .merge(definition.getRuntimeConfiguration());
-        //
-        definition.load();
+                configuration.mergeWithRuntime(
+                        definition.getRuntimeConfiguration());
         List<Dataset> datasets = definition.getDatasets();
         // We force same ordering to allow use of resume.
         datasets.sort(Comparator.comparing(dataset -> dataset.iri));
         for (int index = 0; index < datasets.size(); ++index) {
             String name = "discovery_" + String.format("%03d", index);
-            File directory = new File(runtimeConfiguration.output, name);
+            File directory = new File(effectiveConfiguration.output, name);
             DiscoveryBuilder builder = createDiscoveryBuilder(
                     directory, datasets.get(index),
                     definition, registry, effectiveConfiguration);
             //
             Discovery discovery;
-            boolean resume = runtimeConfiguration.resume && directory.exists();
+            boolean resume = configuration.resume && directory.exists();
             if (resume) {
                 discovery = builder.resume(directory);
             } else {
