@@ -1,3 +1,6 @@
+# Deprecated
+This repository is no longer maintained.
+
 # Visualization discovery
 
 ## Requirements
